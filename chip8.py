@@ -8,6 +8,7 @@ import random
 import sys
 from OpenGL.GL import *
 from OpenGL.GLUT import *
+import pdb
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -207,19 +208,25 @@ class Chip8:
             0x80,  # F
         ]
         for i in range(len(fontset)):
-            self.memory[i] = fontset[i]  # Load the fontset into memory
+            # Load the fontset into memory at 0x50
+            self.memory[0x50 + i] = fontset[i]
 
     def fetch_opcode(self):
         """Fetches the next opcode from memory and increments the program counter."""
         print(f"Fetching opcode from address {hex(self.pc)}")
         self.opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
         print(hex(self.opcode))
+        self.pc += 2
 
     def execute_opcode(self):
+        # pdb.set_trace()
         """Calls a more specific opcode function based on the first nibble."""
         print(f"Executing opcode {hex(self.opcode)}")
-        self.pc += 2
         self.opcode_table[self.opcode & 0xF000]()
+        if self.delay_timer > 0:
+            self.delay_timer -= 1
+        if self.sound_timer > 0:
+            self.sound_timer -= 1
 
     def opcode_0xxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
@@ -227,53 +234,64 @@ class Chip8:
         opcode = self.opcode & 0x00FF
         if opcode in self.opcode_table_0xxx:
             self.opcode_table_0xxx[opcode]()
-        else:
-            logging.warning(
-                f"Unknown opcode {hex(self.opcode)} encountered at address {hex(self.pc - 2)}"
-            )
 
-    def opcode_00E0(self):  # Clear the screen
-        """Clears the screen."""
+    def opcode_00E0(self):  # CLS
+        """Clear the display.
+        We can simply set the entire video buffer to zeroes."""
         print(f"Clearing the screen")
         self.display = [[0 for _ in range(64)] for _ in range(32)]
 
-    def opcode_00EE(self):  # Return from a subroutine
-        """Return from a subroutine."""
+    def opcode_00EE(self):  # RET
+        """Return from a subroutine.
+        The top of the stack has the address of one instruction past the one that called the subroutine,
+        so we can put that back into the PC. Note that this overwrites our preemptive pc += 2 earlier.
+        """
         print(f"Returning from a subroutine")
         self.sp -= 1  # Decrement stack pointer
         self.pc = self.stack[self.sp]  # Return to the stored address
 
-    def opcode_1xxx(self):
-        """Jumps to address NNN."""
+    def opcode_1xxx(self):  # JP addr
+        """Jump to location nnn.
+        The interpreter sets the program counter to nnn.
+        A jump doesn’t remember its origin, so no stack interaction required."""
         print(f"Jumping to address {hex(self.opcode & 0x0FFF)}")
-        self.pc = self.opcode & 0x0FFF
+        self.pc = self.opcode & 0x0FFF  # Set PC to NNN
         print(f"PC = {hex(self.pc)}")
-        # self.pc += 2
 
-    def opcode_2xxx(self):
-        """Calls subroutine at NNN."""
+    def opcode_2xxx(self):  # CALL addr
+        """Call subroutine at nnn.
+        When we call a subroutine, we want to return eventually, so we put the
+        current PC onto the top of the stack. Remember that we did pc += 2 in Cycle(),
+        so the current PC holds the next instruction after this CALL, which is correct.
+        We don’t want to return to the CALL instruction because it would be an infinite
+        loop of CALLs and RETs."""
         print(f"Calling subroutine at address {hex(self.opcode & 0x0FFF)}")
         self.stack[self.sp] = self.pc  # Store current address on the stack
         self.sp += 1  # Increment stack pointer
         self.pc = self.opcode & 0x0FFF  # Jump to the subroutine
 
-    def opcode_3xxx(self):
-        """Skips the next instruction if VX equals NN.
-        The interpreter compares register VX to NN, and if they are equal, increments the program counter by 2.
+    def opcode_3xxx(self):  # SE Vx, byte
+        """Skip next instruction if Vx = kk.
+        Since our PC has already been incremented by 2 in Cycle(),
+        we can just increment by 2 again to skip the next instruction.
         """
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         if self.V[(self.opcode & 0x0F00) >> 8] == (self.opcode & 0x00FF):
             print(f"Opcode = {hex(self.opcode)}")
             self.pc += 2
 
-    def opcode_4xxx(self):
-        """Skips the next instruction if VX doesn't equal NN."""
+    def opcode_4xxx(self):  # SNE Vx, byte
+        """Skip next instruction if Vx != kk.
+        Since our PC has already been incremented by 2 in Cycle(),
+        we can just increment by 2 again to skip the next instruction."""
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         if self.V[self.opcode & 0x0F00 >> 8] != (self.opcode & 0x00FF):
             self.pc += 2
 
-    def opcode_5xxx(self):
-        """Skips the next instruction if VX equals VY. Checks for valid opcode pattern 5XY0."""
+    def opcode_5xxx(self):  # SE Vx, Vy
+        """Skip next instruction if Vx = Vy.
+        Since our PC has already been incremented by 2 in Cycle(),
+        we can just increment by 2 again to skip the next instruction."""
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         n = self.opcode & 0x000F
@@ -288,46 +306,54 @@ class Chip8:
         if self.V[x] == self.V[y]:
             self.pc += 2
 
-    def opcode_6xxx(self):
+    def opcode_6xxx(self):  # LD Vx, byte
         """Sets VX to NN."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         self.V[self.opcode & 0x0F00 >> 8] = self.opcode & 0x00FF
 
-    def opcode_7xxx(self):
+    def opcode_7xxx(self):  # ADD Vx, byte
         """Adds NN to VX (carry flag is not changed)."""
-        x = (self.opcode & 0x0F00) >> 8
-        nn = self.opcode & 0x00FF
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        nn = self.opcode & 0x00FF  # Get the value
         print(f"Adding {hex(nn)} to V{x}")
-        self.V[x] = (self.V[x] + nn) & 0xFF
+        self.V[x] = self.V[x] + nn  # Add NN to VX
 
-    def opcode_8xxx(self):
+    def opcode_8xxx(
+        self,
+    ):  # Calls a more specific opcode function based on the last nibble.
         """Calls a more specific opcode function based on the last nibble."""
         print(f"Calling opcode function 8xxx")
         self.opcode_table_8xxx[self.opcode & 0x000F]()
         self.pc += 2
 
-    def opcode_8xy0(self):
+    def opcode_8xy0(self):  # LD Vx, Vy
         """Sets VX to the value of VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         self.V[self.opcode & 0x0F00 >> 8] = self.V[self.opcode & 0x00F0 >> 4]
 
-    def opcode_8xy1(self):
+    def opcode_8xy1(self):  # OR Vx, Vy
         """Sets VX to VX OR VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         self.V[self.opcode & 0x0F00 >> 8] |= self.V[self.opcode & 0x00F0 >> 4]
 
-    def opcode_8xy2(self):
+    def opcode_8xy2(self):  # AND Vx, Vy
         """Sets VX to VX AND VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         self.V[self.opcode & 0x0F00 >> 8] &= self.V[self.opcode & 0x00F0 >> 4]
 
-    def opcode_8xy3(self):
+    def opcode_8xy3(self):  # XOR Vx, Vy
         """Sets VX to VX XOR VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         self.V[self.opcode & 0x0F00 >> 8] ^= self.V[self.opcode & 0x00F0 >> 4]
 
-    def opcode_8xy4(self):
-        """Sets VX to VX + VY. VF is set to 1 when there's a carry, and to 0 when there isn't."""
+    def opcode_8xy4(self):  # ADD Vx, Vy
+        """Set Vx = Vx + Vy, set VF = carry.
+        The values of Vx and Vy are added together. If the result is greater
+        than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest
+        8 bits of the result are kept, and stored in Vx.
+
+        This is an ADD with an overflow flag. If the sum is greater than what can
+        fit into a byte (255), register VF will be set to 1 as a flag."""
         print(f"Adding V{self.opcode & 0x00F0 >> 4} to V{self.opcode & 0x0F00 >> 8}")
         self.V[self.opcode & 0x0F00 >> 8] += self.V[self.opcode & 0x00F0 >> 4]
         if self.V[self.opcode & 0x0F00 >> 8] > 0xFF:
@@ -336,92 +362,102 @@ class Chip8:
             self.V[0xF] = 0
         self.V[self.opcode & 0x0F00 >> 8] &= 0xFF
 
-    def opcode_8xy5(self):
-        """Sets VX to VX - VY, set VF = NOT borrow."""
+    def opcode_8xy5(self):  # SUB Vx, Vy
+        """Set Vx = Vx - Vy, set VF = NOT borrow.
+        If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx,
+        and the results stored in Vx."""
         print(
             f"Subtracting V{self.opcode & 0x00F0 >> 4} from V{self.opcode & 0x0F00 >> 8}"
         )
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
-        if self.V[x] >= self.V[y]:
+        if self.V[x] > self.V[y]:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
         self.V[x] -= self.V[y]
-        self.V[x] &= 0xFF  # Ensure Vx stays 8-bit
+        print(f"V{x} = {self.V[x]}")
 
     def opcode_8xy6(
         self,
-    ):  # Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift. VX is divided by 2.
-        """Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift. VX is divided by 2."""
+    ):  # SHR Vx {, Vy}
+        """Set Vx = Vx SHR 1.
+        If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
+        Then Vx is divided by 2.
+        A right shift is performed (division by 2), and the least significant bit is saved in Register VF.
+        """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit in VF
         self.V[x] >>= 1  # Divide VX by 2
-        self.pc += 2  # Increment the program counter
 
-    def opcode_8xy7(self):
-        """Sets VX to VY - VX. VF is set to 0 when there's a borrow, and 1 when there isn't."""
+    def opcode_8xy7(self):  # SUBN Vx, Vy
+        """Set Vx = Vy - Vx, set VF = NOT borrow.
+        If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
+        """
         print(
             f"Subtracting V{self.opcode & 0x0F00 >> 8} from V{self.opcode & 0x00F0 >> 4}"
         )
-        if self.V[self.opcode & 0x00F0 >> 4] > self.V[self.opcode & 0x0F00 >> 8]:
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        if self.V[y] > self.V[x]:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[self.opcode & 0x0F00 >> 8] = (
-            self.V[self.opcode & 0x00F0 >> 4] - self.V[self.opcode & 0x0F00 >> 8]
-        )  # Subtract VY from VX
+        self.V[x] = self.V[y] - self.V[x]
 
     def opcode_8xyE(
         self,
-    ):  # Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift. VX is multiplied by 2.
+    ):  # SHL Vx {, Vy}
+        """Set Vx = Vx SHL 1.
+        If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
+        A left shift is performed (multiplication by 2), and the most significant bit is saved in Register VF.
+        """
         x = (self.opcode & 0x0F00) >> 8
-        self.V[0xF] = (self.V[x] >> 7) & 0x1
-        self.V[x] <<= 1
-        self.V[x] &= 0xFF  # Ensure VX stays 8-bit
-        self.pc += 2  # Increment the program counter
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[0xF] = self.V[x] >> 7  # Store the most significant bit in VF
+        self.V[x] <<= 1 & 0xFF  # Multiply VX by 2
 
-    def opcode_9xxx(self):  # Skips the next instruction if VX doesn't equal VY.
-        """Skips the next instruction if VX doesn't equal VY. Checks for valid opcode pattern 9XY0."""
+    def opcode_9xxx(self):  # SNE Vx, Vy
+        """Skip next instruction if Vx != Vy.
+        Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+        """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         y = (self.opcode & 0x00F0) >> 4  # Get the register index
-        n = self.opcode & 0x000F  # Get the last nibble
-
-        print(f"Comparing V{x} to V{y}")
-
-        # Check if the last nibble 'n' is 0x0; if not, it's an invalid opcode
-        if n != 0x0:
-            raise ValueError(f"Invalid opcode: {hex(self.opcode)}")
-
         # Skip the next instruction if VX doesn't equal VY
         if self.V[x] != self.V[y]:
             self.pc += 2
 
-    def opcode_Axxx(self):  # Sets I to the address NNN.
+    def opcode_Axxx(self):  # LD I, addr
         """Sets I to the address NNN."""
         print(f"Setting I to {hex(self.opcode & 0x0FFF)}")
         self.I = self.opcode & 0x0FFF  # Set I to NNN
 
-    def opcode_Bxxx(self):  # Jumps to the address NNN plus V0.
-        """Jumps to the address NNN plus V0."""
+    def opcode_Bxxx(self):
         print(f"Jumping to address {hex(self.opcode & 0x0FFF)} plus V0")
-        self.pc = self.V[0] + (self.opcode & 0x0FFF)  # Set PC to NNN + V0
+        self.pc = self.V[0] + (self.opcode & 0x0FFF)  # Jump to NNN + V0
 
     def opcode_Cxxx(
         self,
-    ):  # Sets VX to the result of a bitwise AND operation on a random number and NN.
+    ):  # RND Vx, byte
         """Sets VX to the result of a bitwise AND operation on a random number and NN."""
         print(
             f"Setting V{self.opcode & 0x0F00 >> 8} to a random number AND {hex(self.opcode & 0x00FF)}"
         )
-        self.V[self.opcode & 0x0F00 >> 8] = random.randint(0, 255) & (
-            self.opcode & 0x00FF
-        )  # Set Vx to a random number AND NN
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        byte = self.opcode & 0x00FF  # Get the value
+        self.V[x] = random.randint(0, 255) & byte  # Generate a random number and AND it
 
     def opcode_Dxxx(
         self,
-    ):  # Draws a sprite at coordinate (VX, VY) with width of 8 pixels and height of N pixels.
-        """Draws a sprite at coordinate (VX, VY) with width of 8 pixels and height of N pixels."""
+    ):  # DRW Vx, Vy, nibble
+        """Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+        We iterate over the sprite, row by row and column by column. We know there are eight columns
+        because a sprite is guaranteed to be eight pixels wide.
+        If a sprite pixel is on then there may be a collision with what’s already being displayed,
+        so we check if our screen pixel in the same location is set. If so we must set the VF register to express collision.
+        Then we can just XOR the screen pixel with 0xFFFFFFFF to essentially XOR it with the sprite pixel (which we now know is on).
+        We can’t XOR directly because the sprite pixel is either 1 or 0 while our video pixel is either 0x00000000 or 0xFFFFFFFF.
+        """
         print(
             f"Drawing a sprite at ({self.V[self.opcode & 0x0F00 >> 8]}, {self.V[self.opcode & 0x00F0 >> 4]}) with width of 8 pixels and height of {self.opcode & 0x000F}"
         )
@@ -429,40 +465,43 @@ class Chip8:
         y = self.V[self.opcode & 0x00F0 >> 4] % 32  # Y coordinate
         height = self.opcode & 0x000F  # Height of the sprite
         self.V[0xF] = 0  # Reset VF
+
         for yline in range(height):  # Each sprite is N pixels tall
             pixel = self.memory[self.I + yline]  # Get the current line of the sprite
+
             for xline in range(8):  # Each sprite is 8 pixels wide
                 if (pixel & (0x80 >> xline)) != 0:  # If the current pixel is on
                     dx = (x + xline) % 64  # Wrap around the screen
                     dy = (y + yline) % 32  # Wrap around the screen
+
                     if self.display[dy][dx] == 1:  # If the pixel is already on
                         self.V[0xF] = 1  # Set VF to 1
                     self.display[dy][dx] ^= 1  # XOR the pixel
 
-    def opcode_Exxx(
-        self,
-    ):  # Skips the next instruction if the key stored in VX is pressed.
+    def opcode_Exxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
         print(f"Calling opcode function Exxx")
         self.opcode_table_Exxx[self.opcode & 0x00FF]()
 
-    def opcode_Ex9E(
-        self,
-    ):  # Skips the next instruction if the key stored in VX is pressed.
-        """Skips the next instruction if the key stored in VX is pressed."""
-        print(f"Checking if V{self.opcode & 0x0F00 >> 8} is pressed")
-        if self.key[self.V[self.opcode & 0x0F00 >> 8]] != 0:  # If the key is pressed
-            self.pc += 2  # Skip the next instruction
+    def opcode_Ex9E(self):  # SKP Vx
+        """Skip next instruction if key with the value of Vx is pressed.
+        Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+        """
+        print(f"Calling opcode function Exxx")
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        key = self.V[x]  # Get the value of the register
+        if self.key[key]:  # If the key is pressed
+            self.pc += 2
 
-    def opcode_ExA1(
-        self,
-    ):  # Skips the next instruction if the key stored in VX isn't pressed.
-        """Skips the next instruction if the key stored in VX isn't pressed."""
+    def opcode_ExA1(self):  # SKNP Vx
+        """Skip next instruction if key with the value of Vx is not pressed.
+        Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+        """
         print(f"Checking if V{self.opcode & 0x0F00 >> 8} is not pressed")
-        if (
-            self.key[self.V[self.opcode & 0x0F00 >> 8]] == 0
-        ):  # If the key is not pressed
-            self.pc += 2  # Skip the next instruction
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        key = self.V[x]  # Get the value of the register
+        if not self.key[key]:  # If the key is not pressed
+            self.pc += 2
 
     def opcode_Fxxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
@@ -472,82 +511,87 @@ class Chip8:
         )  # Get the function from the table
         if func:
             func()  # Call the function
-        else:
-            logging.error(
-                f"Unknown opcode {hex(self.opcode)} at address {hex(self.pc - 2)}"
-            )
 
-    def opcode_Fx07(self):  # Sets VX to the value of the delay timer
+    def opcode_Fx07(self):  # LD Vx, DT
         """Sets VX to the value of the delay timer."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to the value of the delay timer")
-        self.V[self.opcode & 0x0F00 >> 8] = (
-            self.delay_timer & 0xFF
-        )  # Ensure Vx stays 8-bit
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        self.V[x] = self.delay_timer  # Set VX to the value of the delay timer
 
-    def opcode_Fx0A(self):  # Waits for a key press and then stores it in VX
-        """Wait for a key press, store the value of the key in Vx."""
+    def opcode_Fx0A(self):  # LD Vx, K
+        """Wait for a key press, store the value of the key in Vx.
+        The easiest way to “wait” is to decrement the PC by 2 whenever a keypad value is not detected. This has the effect of
+        running the same instruction repeatedly."""
         print(f"Waiting for a key press and storing it in V{self.opcode & 0x0F00 >> 8}")
-        self.waiting_for_keypress = True  # Set the flag
-        self.key_register = (self.opcode & 0x0F00) >> 8  # Store the register
+        x = (self.opcode & 0x0F00) >> 8
+        key_pressed = False
+        for i in range(16):
+            if self.key[i]:
+                self.V[x] = i
+                key_pressed = True
+                break
+        if not key_pressed:
+            self.pc -= 2  # Stay at the current instruction if no key is pressed
 
-    def opcode_Fx15(self):  # Sets the delay timer to VX
+    def opcode_Fx15(self):  # LD DT, Vx
         """Sets the delay timer to VX."""
         print(f"Setting the delay timer to V{self.opcode & 0x0F00 >> 8}")
-        self.delay_timer = (
-            self.V[self.opcode & 0x0F00 >> 8] & 0xFF
-        )  # Ensure Vx stays 8-bit
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        self.delay_timer = self.V[x]  # Set the delay timer to the value of the register
 
-    def opcode_Fx18(self):  # Sets the sound timer to VX
+    def opcode_Fx18(self):  # LD ST, Vx
         """Sets the sound timer to VX."""
         print(f"Setting the sound timer to V{self.opcode & 0x0F00 >> 8}")
-        self.sound_timer = (
-            self.V[self.opcode & 0x0F00 >> 8] & 0xFF
-        )  # Ensure Vx stays 8-bit
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        self.sound_timer = self.V[x]  # Set the sound timer to the value of the register
 
-    def opcode_Fx1E(self):  # Adds VX to I and sets VF to 1 if there's an overflow
+    def opcode_Fx1E(self):  # ADD I, Vx
         """Adds VX to I and sets VF to 1 if there's an overflow."""
         print(f"Adding V{self.opcode & 0x0F00 >> 8} to I")
-        self.I += self.V[self.opcode & 0x0F00 >> 8]  # Add Vx to I
-        if self.I > 0xFFF:  # If there's an overflow
-            self.V[0xF] = 1  # Set VF to 1
-        else:
-            self.V[0xF] = 0  # Set VF to 0
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        self.I += self.V[x]
 
     def opcode_Fx29(
         self,
-    ):  # Sets I to the location of the sprite for the character in VX
-        """Sets I to the location of the sprite for the character in VX."""
+    ):  # LD F, Vx
+        """Set I = location of sprite for digit Vx.
+        We know the font characters are located at 0x50, and we know they’re five bytes each, so we can get
+        the address of the first byte of any character by taking an offset from the start address.
+        """
         print(
             f"Setting I to the location of the sprite for V{self.opcode & 0x0F00 >> 8}"
         )
-        self.I = self.V[self.opcode & 0x0F00 >> 8] * 0x5  # Each sprite is 5 bytes long
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        digit = self.V[x]  # Get the value of the register
+        self.I = 0x50 + (5 * digit)  # Set I to the location of the sprite
 
-    def opcode_Fx33(self):
-        """Stores the binary-coded decimal representation of VX at the addresses I, I+1, and I+2."""
+    def opcode_Fx33(self):  # LD B, Vx
+        """Store BCD representation of Vx in memory locations I, I+1, and I+2.
+        The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens
+        digit at location I+1, and the ones digit at location I+2.
+        We can use the modulus operator to get the right-most digit of a number, and then do a division to remove that digit.
+        A division by ten will either completely remove the digit (340 / 10 = 34), or result in a float which will be truncated
+        (345 / 10 = 34.5 = 34)."""
         print(
             f"Storing the BCD representation of V{self.opcode & 0x0F00 >> 8} at addresses I, I+1, and I+2"
         )
-        self.memory[self.I] = self.V[self.opcode & 0x0F00 >> 8] // 100  # Hundreds
-        self.memory[self.I + 1] = (self.V[self.opcode & 0x0F00 >> 8] // 10) % 10  # Tens
-        self.memory[self.I + 2] = (self.V[self.opcode & 0x0F00 >> 8] % 100) % 10  # Ones
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        value = self.V[x]  # Get the value of the register
+        self.memory[self.I] = value // 100  # Get the left-most digit
+        self.memory[self.I + 1] = (value // 10) % 10  # Get the middle digit
+        self.memory[self.I + 2] = (value % 100) % 10  # Get the right-most digit
 
-    def opcode_Fx55(self):  # Stores V0 to VX in memory starting at address I
+    def opcode_Fx55(self):  # LD [I], Vx
         """Stores V0 to VX in memory starting at address I."""
-        x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        for i in range(x + 1):  # Loop through the registers
-            self.memory[self.I + i] = self.V[i]  # Store the register in memory
-        self.pc += 2  # Increment the program counter
+        x = (self.opcode & 0x0F00) >> 8
+        for i in range(x + 1):
+            self.memory[self.I + i] = self.V[i]
 
-    def opcode_Fx65(
-        self,
-    ):  # Fills V0 to VX with values from memory starting at address I
+    def opcode_Fx65(self):  # LD Vx, [I]
         """Fills V0 to VX with values from memory starting at address I."""
-        x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        for i in range(x + 1):  # Loop through the registers
-            self.V[i] = self.memory[
-                self.I + i
-            ]  # Load the register with the value from memory
-        self.pc += 2  # Increment the program counter
+        x = (self.opcode & 0x0F00) >> 8
+        for i in range(x + 1):
+            self.V[i] = self.memory[self.I + i]
 
     def emulate_cycle(self):  # Emulates one cycle of the CHIP-8 CPU
         """Emulates one cycle of the CHIP-8 CPU."""
@@ -576,24 +620,7 @@ class Chip8:
     def set_keys(self):
         """Sets the key state based on the current state of the keyboard."""
         keys = pygame.key.get_pressed()
-        key_map = {
-            pygame.K_1: 0x1,
-            pygame.K_2: 0x2,
-            pygame.K_3: 0x3,
-            pygame.K_4: 0xC,
-            pygame.K_q: 0x4,
-            pygame.K_w: 0x5,
-            pygame.K_e: 0x6,
-            pygame.K_r: 0xD,
-            pygame.K_a: 0x7,
-            pygame.K_s: 0x8,
-            pygame.K_d: 0x9,
-            pygame.K_f: 0xE,
-            pygame.K_z: 0xA,
-            pygame.K_x: 0x0,
-            pygame.K_c: 0xB,
-            pygame.K_v: 0xF,
-        }
+        key_map = self.key_map
         for key, value in key_map.items():
             self.key[value] = 1 if keys[key] else 0
 
@@ -601,17 +628,19 @@ class Chip8:
         """Draws the current display state to the screen using OpenGL."""
         glClear(GL_COLOR_BUFFER_BIT)
 
-        glColor3f(0.25, 0.32, 0.11)  # White color for 'on' pixels
+        glColor3f(0.25, 0.32, 0.11)  # Color for 'on' pixels (adjust as needed)
+
+        scaling_factor = 1  # Scaling factor from 64x32 to 640x320
 
         glBegin(GL_QUADS)
         for x in range(64):  # The display is 64x32 pixels
-            for y in range(32):  # The display is 64x32 pixels
+            for y in range(32):
                 if self.display[y][x] == 1:  # If the pixel is on
-                    # Draw a rectangle (quad) for each 'on' pixel
-                    glVertex2f(x, y)
-                    glVertex2f(x + 1, y)
-                    glVertex2f(x + 1, y + 1)
-                    glVertex2f(x, y + 1)
+                    # Draw a scaled rectangle (quad) for each 'on' pixel
+                    glVertex2f(x * scaling_factor, y * scaling_factor)
+                    glVertex2f((x + 1) * scaling_factor, y * scaling_factor)
+                    glVertex2f((x + 1) * scaling_factor, (y + 1) * scaling_factor)
+                    glVertex2f(x * scaling_factor, (y + 1) * scaling_factor)
         glEnd()
 
         pygame.display.flip()
@@ -639,38 +668,10 @@ class Chip8:
         """Main loop of the emulator."""
         running = True
         while running:
-            print(f"PC: {hex(self.pc)}")
-            print(f"I: {hex(self.I)}")
-            print(f"SP: {hex(self.sp)}")
-            print(f"V0: {hex(self.V[0])}")
-            print(f"V1: {hex(self.V[1])}")
-            print(f"V2: {hex(self.V[2])}")
-            print(f"V3: {hex(self.V[3])}")
-            print(f"V4: {hex(self.V[4])}")
-            print(f"V5: {hex(self.V[5])}")
-            print(f"V6: {hex(self.V[6])}")
-            print(f"V7: {hex(self.V[7])}")
-            print(f"V8: {hex(self.V[8])}")
-            print(f"V9: {hex(self.V[9])}")
-            print(f"VA: {hex(self.V[10])}")
-            print(f"VB: {hex(self.V[11])}")
-            print(f"VC: {hex(self.V[12])}")
-            print(f"VD: {hex(self.V[13])}")
-            print(f"VE: {hex(self.V[14])}")
-            print(f"VF: {hex(self.V[15])}")
-            print(f"Delay timer: {hex(self.delay_timer)}")
-            print(f"Sound timer: {hex(self.sound_timer)}")
-            print(f"Waiting for keypress: {self.waiting_for_keypress}")
             if self.key_register is not None:
                 print(f"Key register: {hex(self.key_register)}")
             else:
                 print("Key register: None")
-            print(f"Key state: {self.key}")
-            print(f"Stack: {self.stack}")
-            # print(f"Display: {self.display}")
-            # print(f"Memory: {self.memory}")
-            print(f"Opcode: {hex(self.opcode)}")
-            print(f"Opcode table: {self.opcode_table}")
 
             for event in pygame.event.get():  # Check for events
                 if event.type == pygame.QUIT:  # If the user clicks the close button
