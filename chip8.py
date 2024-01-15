@@ -29,7 +29,7 @@ class Chip8:
         glLoadIdentity()
         glOrtho(0, 64, 32, 0, -1, 1)  # Coordinate system setup
         glMatrixMode(GL_MODELVIEW)
-        pygame.display.set_caption("CHIP-8 Emulator")
+        pygame.display.set_caption(f"CHIP-8 Emulator: {filename}")
 
         # Initialize CHIP-8 memory and registers
         self.memory = [0] * 4096  # 4KB of memory
@@ -390,18 +390,15 @@ class Chip8:
         self.V[x] -= self.V[y]
         print(f"V{x} = {self.V[x]}")
 
-    def opcode_8xy6(
-        self,
-    ):  # SHR Vx {, Vy}
+    def opcode_8xy6(self):
         """Set Vx = Vx SHR 1.
         If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
         Then Vx is divided by 2.
-        A right shift is performed (division by 2), and the least significant bit is saved in Register VF.
         """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        y = (self.opcode & 0x00F0) >> 4
-        self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit in VF
-        self.V[x] >>= 1  # Divide VX by 2
+        self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit of Vx in VF
+        self.V[x] >>= 1  # Divide Vx by 2
+        self.pc += 2
 
     def opcode_8xy7(self):  # SUBN Vx, Vy
         """Set Vx = Vy - Vx, set VF = NOT borrow.
