@@ -309,7 +309,9 @@ class Chip8:
     def opcode_6xxx(self):  # LD Vx, byte
         """Sets VX to NN."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
-        self.V[self.opcode & 0x0F00 >> 8] = self.opcode & 0x00FF
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        nn = self.opcode & 0x000F  # Get the value
+        self.V[x] = nn  # Set VX to NN
 
     def opcode_7xxx(self):  # ADD Vx, byte
         """Adds NN to VX (carry flag is not changed)."""
@@ -321,30 +323,38 @@ class Chip8:
     def opcode_8xxx(
         self,
     ):  # Calls a more specific opcode function based on the last nibble.
-        """Calls a more specific opcode function based on the last nibble."""
+        """Calls a more specific opcodeself.I = self.opcode & 0x0FFF  # Set I to NNN function based on the last nibble."""
         print(f"Calling opcode function 8xxx")
-        self.opcode_table_8xxx[self.opcode & 0x000F]()
+        self.opcode_table_8xxx.get(self.opcode & 0x000F)
         self.pc += 2
 
     def opcode_8xy0(self):  # LD Vx, Vy
         """Sets VX to the value of VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
-        self.V[self.opcode & 0x0F00 >> 8] = self.V[self.opcode & 0x00F0 >> 4]
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[x] = self.V[y]  # Set VX to the value of VY
 
     def opcode_8xy1(self):  # OR Vx, Vy
         """Sets VX to VX OR VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
-        self.V[self.opcode & 0x0F00 >> 8] |= self.V[self.opcode & 0x00F0 >> 4]
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[x] |= self.V[y]
 
     def opcode_8xy2(self):  # AND Vx, Vy
         """Sets VX to VX AND VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
-        self.V[self.opcode & 0x0F00 >> 8] &= self.V[self.opcode & 0x00F0 >> 4]
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[x] &= self.V[y]
 
     def opcode_8xy3(self):  # XOR Vx, Vy
         """Sets VX to VX XOR VY."""
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
-        self.V[self.opcode & 0x0F00 >> 8] ^= self.V[self.opcode & 0x00F0 >> 4]
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[x] ^= self.V[y]
 
     def opcode_8xy4(self):  # ADD Vx, Vy
         """Set Vx = Vx + Vy, set VF = carry.
@@ -355,12 +365,14 @@ class Chip8:
         This is an ADD with an overflow flag. If the sum is greater than what can
         fit into a byte (255), register VF will be set to 1 as a flag."""
         print(f"Adding V{self.opcode & 0x00F0 >> 4} to V{self.opcode & 0x0F00 >> 8}")
-        self.V[self.opcode & 0x0F00 >> 8] += self.V[self.opcode & 0x00F0 >> 4]
-        if self.V[self.opcode & 0x0F00 >> 8] > 0xFF:
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[x] += self.V[y]
+        if self.V[x] > 0xFF:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[self.opcode & 0x0F00 >> 8] &= 0xFF
+        self.V[x] &= 0xFF
 
     def opcode_8xy5(self):  # SUB Vx, Vy
         """Set Vx = Vx - Vy, set VF = NOT borrow.
@@ -387,6 +399,7 @@ class Chip8:
         A right shift is performed (division by 2), and the least significant bit is saved in Register VF.
         """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        y = (self.opcode & 0x00F0) >> 4
         self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit in VF
         self.V[x] >>= 1  # Divide VX by 2
 
@@ -461,8 +474,8 @@ class Chip8:
         print(
             f"Drawing a sprite at ({self.V[self.opcode & 0x0F00 >> 8]}, {self.V[self.opcode & 0x00F0 >> 4]}) with width of 8 pixels and height of {self.opcode & 0x000F}"
         )
-        x = self.V[self.opcode & 0x0F00 >> 8] % 64  # X coordinate
-        y = self.V[self.opcode & 0x00F0 >> 4] % 32  # Y coordinate
+        x = self.V[(self.opcode & 0x0F00) >> 8] % 64  # X coordinate
+        y = self.V[(self.opcode & 0x00F0) >> 4] % 32  # Y coordinate
         height = self.opcode & 0x000F  # Height of the sprite
         self.V[0xF] = 0  # Reset VF
 
@@ -471,11 +484,11 @@ class Chip8:
 
             for xline in range(8):  # Each sprite is 8 pixels wide
                 if (pixel & (0x80 >> xline)) != 0:  # If the current pixel is on
-                    dx = (x + xline) % 64  # Wrap around the screen
-                    dy = (y + yline) % 32  # Wrap around the screen
+                    dx = (x + xline) % 64  # Wrap around the screen horizontally
+                    dy = (y + yline) % 32  # Wrap around the screen vertically
 
                     if self.display[dy][dx] == 1:  # If the pixel is already on
-                        self.V[0xF] = 1  # Set VF to 1
+                        self.V[0xF] = 1  # Set VF to 1 (collision)
                     self.display[dy][dx] ^= 1  # XOR the pixel
 
     def opcode_Exxx(self):
@@ -696,7 +709,7 @@ class Chip8:
 
             self.set_keys()
             self.draw_graphics()
-            time.sleep(1 / 60)  # Limit to 60 Hz
+            time.sleep(0.0015)  # Limit to 60 Hz
 
         pygame.quit()
 
