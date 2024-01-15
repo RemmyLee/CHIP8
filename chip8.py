@@ -3,12 +3,10 @@
 import time
 import pygame
 import logging
-import os
 import random
 import sys
 from OpenGL.GL import *
 from OpenGL.GLUT import *
-import pdb
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -279,6 +277,8 @@ class Chip8:
         if self.V[(self.opcode & 0x0F00) >> 8] == (self.opcode & 0x00FF):
             print(f"Opcode = {hex(self.opcode)}")
             self.pc += 2
+        else:
+            print(f"Opcode = {hex(self.opcode)}")
 
     def opcode_4xxx(self):  # SNE Vx, byte
         """Skip next instruction if Vx != kk.
@@ -286,7 +286,7 @@ class Chip8:
         we can just increment by 2 again to skip the next instruction."""
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         if self.V[self.opcode & 0x0F00 >> 8] != (self.opcode & 0x00FF):
-            self.pc += 2
+            return
 
     def opcode_5xxx(self):  # SE Vx, Vy
         """Skip next instruction if Vx = Vy.
@@ -308,10 +308,10 @@ class Chip8:
 
     def opcode_6xxx(self):  # LD Vx, byte
         """Sets VX to NN."""
-        print(f"Setting V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
-        x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        nn = self.opcode & 0x000F  # Get the value
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index (x)
+        nn = self.opcode & 0x00FF  # Get the byte value (nn)
         self.V[x] = nn  # Set VX to NN
+        print(f"Setting V{x} to {hex(nn)}")
 
     def opcode_7xxx(self):  # ADD Vx, byte
         """Adds NN to VX (carry flag is not changed)."""
@@ -388,6 +388,7 @@ class Chip8:
         else:
             self.V[0xF] = 0
         self.V[x] -= self.V[y]
+
         print(f"V{x} = {self.V[x]}")
 
     def opcode_8xy6(self):
@@ -396,9 +397,16 @@ class Chip8:
         Then Vx is divided by 2.
         """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        time.sleep(3)
+        print(f"Shifting V{x} right by 1")
         self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit of Vx in VF
+        time.sleep(3)
+        print(f"V{x} = {self.V[x]}")
         self.V[x] >>= 1  # Divide Vx by 2
-        self.pc += 2
+        time.sleep(3)
+        print(f"V{x} = {self.V[x]}")
+        print(f"VF = {self.V[0xF]}")
+        print("--------------------")
 
     def opcode_8xy7(self):  # SUBN Vx, Vy
         """Set Vx = Vy - Vx, set VF = NOT borrow.
@@ -435,7 +443,7 @@ class Chip8:
         y = (self.opcode & 0x00F0) >> 4  # Get the register index
         # Skip the next instruction if VX doesn't equal VY
         if self.V[x] != self.V[y]:
-            self.pc += 2
+            return
 
     def opcode_Axxx(self):  # LD I, addr
         """Sets I to the address NNN."""
@@ -678,6 +686,12 @@ class Chip8:
         """Main loop of the emulator."""
         running = True
         while running:
+            print(f"PC: {hex(self.pc)}")
+            print(f"Opcode: {hex(self.opcode)}")
+            print(f"I: {hex(self.I)}")
+            print(f"SP: {hex(self.sp)}")
+            print(f"Delay timer: {hex(self.delay_timer)}")
+            print(f"Sound timer: {hex(self.sound_timer)}")
             if self.key_register is not None:
                 print(f"Key register: {hex(self.key_register)}")
             else:
@@ -707,6 +721,7 @@ class Chip8:
             self.set_keys()
             self.draw_graphics()
             time.sleep(0.0015)  # Limit to 60 Hz
+            # time.sleep(1)
 
         pygame.quit()
 
