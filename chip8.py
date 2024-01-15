@@ -214,7 +214,6 @@ class Chip8:
         print(f"Fetching opcode from address {hex(self.pc)}")
         self.opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
         print(hex(self.opcode))
-        self.pc += 2
 
     def execute_opcode(self):
         # pdb.set_trace()
@@ -238,6 +237,7 @@ class Chip8:
         We can simply set the entire video buffer to zeroes."""
         print(f"Clearing the screen")
         self.display = [[0 for _ in range(64)] for _ in range(32)]
+        self.pc += 2
 
     def opcode_00EE(self):  # RET
         """Return from a subroutine.
@@ -247,6 +247,7 @@ class Chip8:
         print(f"Returning from a subroutine")
         self.sp -= 1  # Decrement stack pointer
         self.pc = self.stack[self.sp]  # Return to the stored address
+        self.pc += 2
 
     def opcode_1xxx(self):  # JP addr
         """Jump to location nnn.
@@ -276,9 +277,10 @@ class Chip8:
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         if self.V[(self.opcode & 0x0F00) >> 8] == (self.opcode & 0x00FF):
             print(f"Opcode = {hex(self.opcode)}")
-            self.pc += 2
+            self.pc += 4
         else:
             print(f"Opcode = {hex(self.opcode)}")
+            self.pc += 2
 
     def opcode_4xxx(self):  # SNE Vx, byte
         """Skip next instruction if Vx != kk.
@@ -286,7 +288,9 @@ class Chip8:
         we can just increment by 2 again to skip the next instruction."""
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         if self.V[self.opcode & 0x0F00 >> 8] != (self.opcode & 0x00FF):
-            return
+            self.pc += 2
+        else:
+            self.pc += 4
 
     def opcode_5xxx(self):  # SE Vx, Vy
         """Skip next instruction if Vx = Vy.
@@ -295,7 +299,6 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         n = self.opcode & 0x000F
-
         print(f"Comparing V{x} to V{y}")
 
         # Check if the last nibble 'n' is 0x0; if not, it's an invalid opcode
@@ -304,6 +307,8 @@ class Chip8:
 
         # Skip the next instruction if VX equals VY
         if self.V[x] == self.V[y]:
+            self.pc += 4
+        else:
             self.pc += 2
 
     def opcode_6xxx(self):  # LD Vx, byte
@@ -312,6 +317,7 @@ class Chip8:
         nn = self.opcode & 0x00FF  # Get the byte value (nn)
         self.V[x] = nn  # Set VX to NN
         print(f"Setting V{x} to {hex(nn)}")
+        self.pc += 2
 
     def opcode_7xxx(self):  # ADD Vx, byte
         """Adds NN to VX (carry flag is not changed)."""
@@ -319,6 +325,7 @@ class Chip8:
         nn = self.opcode & 0x00FF  # Get the value
         print(f"Adding {hex(nn)} to V{x}")
         self.V[x] = self.V[x] + nn  # Add NN to VX
+        self.pc += 2
 
     def opcode_8xxx(
         self,
@@ -334,6 +341,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] = self.V[y]  # Set VX to the value of VY
+        self.pc += 2
 
     def opcode_8xy1(self):  # OR Vx, Vy
         """Sets VX to VX OR VY."""
@@ -341,6 +349,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] |= self.V[y]
+        self.pc += 2
 
     def opcode_8xy2(self):  # AND Vx, Vy
         """Sets VX to VX AND VY."""
@@ -348,6 +357,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] &= self.V[y]
+        self.pc += 2
 
     def opcode_8xy3(self):  # XOR Vx, Vy
         """Sets VX to VX XOR VY."""
@@ -355,6 +365,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] ^= self.V[y]
+        self.pc += 2
 
     def opcode_8xy4(self):  # ADD Vx, Vy
         """Set Vx = Vx + Vy, set VF = carry.
@@ -373,6 +384,7 @@ class Chip8:
         else:
             self.V[0xF] = 0
         self.V[x] &= 0xFF
+        self.pc += 2
 
     def opcode_8xy5(self):  # SUB Vx, Vy
         """Set Vx = Vx - Vy, set VF = NOT borrow.
@@ -388,8 +400,8 @@ class Chip8:
         else:
             self.V[0xF] = 0
         self.V[x] -= self.V[y]
-
         print(f"V{x} = {self.V[x]}")
+        self.pc += 2
 
     def opcode_8xy6(self):
         """Set Vx = Vx SHR 1.
@@ -397,16 +409,9 @@ class Chip8:
         Then Vx is divided by 2.
         """
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        time.sleep(3)
-        print(f"Shifting V{x} right by 1")
         self.V[0xF] = self.V[x] & 0x1  # Store the least significant bit of Vx in VF
-        time.sleep(3)
-        print(f"V{x} = {self.V[x]}")
         self.V[x] >>= 1  # Divide Vx by 2
-        time.sleep(3)
-        print(f"V{x} = {self.V[x]}")
-        print(f"VF = {self.V[0xF]}")
-        print("--------------------")
+        self.pc += 2
 
     def opcode_8xy7(self):  # SUBN Vx, Vy
         """Set Vx = Vy - Vx, set VF = NOT borrow.
@@ -422,6 +427,7 @@ class Chip8:
         else:
             self.V[0xF] = 0
         self.V[x] = self.V[y] - self.V[x]
+        self.pc += 2
 
     def opcode_8xyE(
         self,
@@ -434,6 +440,7 @@ class Chip8:
         y = (self.opcode & 0x00F0) >> 4
         self.V[0xF] = self.V[x] >> 7  # Store the most significant bit in VF
         self.V[x] <<= 1 & 0xFF  # Multiply VX by 2
+        self.pc += 2
 
     def opcode_9xxx(self):  # SNE Vx, Vy
         """Skip next instruction if Vx != Vy.
@@ -443,12 +450,15 @@ class Chip8:
         y = (self.opcode & 0x00F0) >> 4  # Get the register index
         # Skip the next instruction if VX doesn't equal VY
         if self.V[x] != self.V[y]:
-            return
+            self.pc += 2
+        else:
+            self.pc += 4
 
     def opcode_Axxx(self):  # LD I, addr
         """Sets I to the address NNN."""
         print(f"Setting I to {hex(self.opcode & 0x0FFF)}")
         self.I = self.opcode & 0x0FFF  # Set I to NNN
+        self.pc += 2
 
     def opcode_Bxxx(self):
         print(f"Jumping to address {hex(self.opcode & 0x0FFF)} plus V0")
@@ -464,6 +474,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         byte = self.opcode & 0x00FF  # Get the value
         self.V[x] = random.randint(0, 255) & byte  # Generate a random number and AND it
+        self.pc += 2
 
     def opcode_Dxxx(
         self,
@@ -479,6 +490,7 @@ class Chip8:
         print(
             f"Drawing a sprite at ({self.V[self.opcode & 0x0F00 >> 8]}, {self.V[self.opcode & 0x00F0 >> 4]}) with width of 8 pixels and height of {self.opcode & 0x000F}"
         )
+        print(f"Sprite data: {self.memory[self.I:self.I + (self.opcode & 0x000F)]}")
         x = self.V[(self.opcode & 0x0F00) >> 8] % 64  # X coordinate
         y = self.V[(self.opcode & 0x00F0) >> 4] % 32  # Y coordinate
         height = self.opcode & 0x000F  # Height of the sprite
@@ -495,6 +507,7 @@ class Chip8:
                     if self.display[dy][dx] == 1:  # If the pixel is already on
                         self.V[0xF] = 1  # Set VF to 1 (collision)
                     self.display[dy][dx] ^= 1  # XOR the pixel
+        self.pc += 2
 
     def opcode_Exxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
@@ -509,6 +522,8 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         key = self.V[x]  # Get the value of the register
         if self.key[key]:  # If the key is pressed
+            self.pc += 4
+        else:
             self.pc += 2
 
     def opcode_ExA1(self):  # SKNP Vx
@@ -519,6 +534,8 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         key = self.V[x]  # Get the value of the register
         if not self.key[key]:  # If the key is not pressed
+            self.pc += 4
+        else:
             self.pc += 2
 
     def opcode_Fxxx(self):
@@ -535,6 +552,7 @@ class Chip8:
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to the value of the delay timer")
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         self.V[x] = self.delay_timer  # Set VX to the value of the delay timer
+        self.pc += 2
 
     def opcode_Fx0A(self):  # LD Vx, K
         """Wait for a key press, store the value of the key in Vx.
@@ -550,24 +568,32 @@ class Chip8:
                 break
         if not key_pressed:
             self.pc -= 2  # Stay at the current instruction if no key is pressed
+        self.pc += 2
 
     def opcode_Fx15(self):  # LD DT, Vx
         """Sets the delay timer to VX."""
         print(f"Setting the delay timer to V{self.opcode & 0x0F00 >> 8}")
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         self.delay_timer = self.V[x]  # Set the delay timer to the value of the register
+        self.pc += 2
 
     def opcode_Fx18(self):  # LD ST, Vx
         """Sets the sound timer to VX."""
         print(f"Setting the sound timer to V{self.opcode & 0x0F00 >> 8}")
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         self.sound_timer = self.V[x]  # Set the sound timer to the value of the register
+        self.pc += 2
 
     def opcode_Fx1E(self):  # ADD I, Vx
         """Adds VX to I and sets VF to 1 if there's an overflow."""
         print(f"Adding V{self.opcode & 0x0F00 >> 8} to I")
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        self.I += self.V[x]
+        if self.I + self.V[x] > 0xFFF:
+            self.V[0xF] = 1
+        else:
+            self.V[0xF] = 0
+        self.I += self.V[x]  # Add VX to I
+        self.pc += 2
 
     def opcode_Fx29(
         self,
@@ -582,39 +608,46 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         digit = self.V[x]  # Get the value of the register
         self.I = 0x50 + (5 * digit)  # Set I to the location of the sprite
+        self.pc += 2
 
-    def opcode_Fx33(self):  # LD B, Vx
-        """Store BCD representation of Vx in memory locations I, I+1, and I+2.
-        The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens
-        digit at location I+1, and the ones digit at location I+2.
-        We can use the modulus operator to get the right-most digit of a number, and then do a division to remove that digit.
-        A division by ten will either completely remove the digit (340 / 10 = 34), or result in a float which will be truncated
-        (345 / 10 = 34.5 = 34)."""
+    def opcode_Fx33(self):
+        """Stores the binary-coded decimal representation of VX at the addresses I, I+1, and I+2."""
         print(
             f"Storing the BCD representation of V{self.opcode & 0x0F00 >> 8} at addresses I, I+1, and I+2"
         )
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        value = self.V[x]  # Get the value of the register
-        self.memory[self.I] = value // 100  # Get the left-most digit
-        self.memory[self.I + 1] = (value // 10) % 10  # Get the middle digit
-        self.memory[self.I + 2] = (value % 100) % 10  # Get the right-most digit
+        self.memory[self.I] = self.V[x] // 100  # Get the BCD representation (hundreds)
+        self.memory[self.I + 1] = (
+            self.V[x] // 10
+        ) % 10  # Get the BCD representation (tens)
+        self.memory[self.I + 2] = (
+            self.V[x] % 100
+        ) % 10  # Get the BCD representation (ones)
+        self.pc += 2
 
     def opcode_Fx55(self):  # LD [I], Vx
-        """Stores V0 to VX in memory starting at address I."""
-        x = (self.opcode & 0x0F00) >> 8
-        for i in range(x + 1):
+        """Store registers V0 through Vx in memory starting at location I."""
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        print(f"Storing V0 through V{x} in memory starting at address I")
+        for i in range(x + 1):  # Store V0 through Vx in memory starting at address I
             self.memory[self.I + i] = self.V[i]
+        self.I += x + 1
+        self.pc += 2
 
     def opcode_Fx65(self):  # LD Vx, [I]
         """Fills V0 to VX with values from memory starting at address I."""
-        x = (self.opcode & 0x0F00) >> 8
-        for i in range(x + 1):
-            self.V[i] = self.memory[self.I + i]
+        x = (self.opcode & 0x0F00) >> 8  # Get the register index
+        for i in range(
+            x + 1
+        ):  # Fill V0 through Vx with values from memory starting at address I
+            self.V[i] = self.memory[self.I + i]  # Set VX to the value of the memory
+        self.I += x + 1
+        self.pc += 2
 
     def emulate_cycle(self):  # Emulates one cycle of the CHIP-8 CPU
         """Emulates one cycle of the CHIP-8 CPU."""
         if self.waiting_for_keypress:  # If the emulator is waiting for a key press
-            return  # Skip the cycle
+            self.pc -= 2  # Skip the cycle
         self.fetch_opcode()
         self.execute_opcode()
 
@@ -720,7 +753,8 @@ class Chip8:
 
             self.set_keys()
             self.draw_graphics()
-            time.sleep(0.0015)  # Limit to 60 Hz
+            # Run the emulator at 500Hz (500 cycles per second)
+            time.sleep(1 / 60)
             # time.sleep(1)
 
         pygame.quit()
