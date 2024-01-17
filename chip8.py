@@ -119,6 +119,44 @@ class Chip8:
             0x0055: self.opcode_Fx55,  # Stores V0 to VX in memory starting at address I. Copies the values of registers V0 through Vx into memory, starting at the address in I.
             0x0065: self.opcode_Fx65,  # Fills V0 to VX with values from memory starting at address I. Copies the values of memory addresses starting at the address in I into registers V0 through Vx.
         }
+
+        self.opcode_patterns = {
+            0x00E0: "CLS",
+            0x00EE: "RET",
+            0x1000: "JP {nnn}",
+            0x2000: "CALL {nnn}",
+            0x3000: "SE V{x}, {kk}",
+            0x4000: "SNE V{x}, {kk}",
+            0x5000: "SE V{x}, V{y}",
+            0x6000: "LD V{x}, {kk}",
+            0x7000: "ADD V{x}, {kk}",
+            0x8000: "LD V{x}, V{y}",
+            0x8001: "OR V{x}, V{y}",
+            0x8002: "AND V{x}, V{y}",
+            0x8003: "XOR V{x}, V{y}",
+            0x8004: "ADD V{x}, V{y}",
+            0x8005: "SUB V{x}, V{y}",
+            0x8006: "SHR V{x}",
+            0x8007: "SUBN V{x}, V{y}",
+            0x800E: "SHL V{x}",
+            0x9000: "SNE V{x}, V{y}",
+            0xA000: "LD I, {nnn}",
+            0xB000: "JP V0, {nnn}",
+            0xC000: "RND V{x}, {kk}",
+            0xD000: "DRW V{x}, V{y}, {n}",
+            0xE09E: "SKP V{x}",
+            0xE0A1: "SKNP V{x}",
+            0xF007: "LD V{x}, DT",
+            0xF00A: "LD V{x}, K",
+            0xF015: "LD DT, V{x}",
+            0xF018: "LD ST, V{x}",
+            0xF01E: "ADD I, V{x}",
+            0xF029: "LD F, V{x}",
+            0xF033: "LD B, V{x}",
+            0xF055: "LD [I], V{x}",
+            0xF065: "LD V{x}, [I]",
+        }
+
         self.load_fontset()  # Load the fontset into memory
         self.load_game(filename)
 
@@ -209,140 +247,40 @@ class Chip8:
             # Load the fontset into memory at 0x50
             self.memory[0x50 + i] = fontset[i]
 
+    def get_opcode_description(self, opcode):
+        nnn = opcode & 0x0FFF
+        kk = opcode & 0x00FF
+        x = (opcode & 0x0F00) >> 8
+        y = (opcode & 0x00F0) >> 4
+        n = opcode & 0x000F
+
+        # Match the opcode against patterns and call the function if matched
+        for pattern, message in self.opcode_patterns.items():
+            if (opcode & 0xF000) == (pattern & 0xF000):
+                if (
+                    pattern & 0x0F00
+                ):  # Pattern includes a nibble that must match exactly
+                    if (opcode & 0x0F00) != (pattern & 0x0F00):
+                        continue
+                if (
+                    pattern & 0x00F0
+                ):  # Pattern includes a nibble that must match exactly
+                    if (opcode & 0x00F0) != (pattern & 0x00F0):
+                        continue
+                if pattern & 0x00FF:  # Pattern includes a byte that must match exactly
+                    if (opcode & 0x00FF) != (pattern & 0x00FF):
+                        continue
+                # Format the message
+                return message.format(nnn=nnn, kk=kk, x=x, y=y, n=n)
+        return "Unknown opcode"
+
     def fetch_opcode(self):
         """Fetches the next opcode from memory and increments the program counter."""
         print(f"Fetching opcode from address {hex(self.pc)}")
         self.opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
-
-        if self.opcode == 0x00E0:
-            print(f"{hex(self.opcode)}: CLS")
-        elif self.opcode == 0x00EE:
-            print(f"{hex(self.opcode)}: RET")
-        elif self.opcode & 0xF000 == 0x1000:
-            print(f"{hex(self.opcode)}: JP {hex(self.opcode & 0x0FFF)}")
-        elif self.opcode & 0xF000 == 0x2000:
-            print(f"{hex(self.opcode)}: CALL {hex(self.opcode & 0x0FFF)}")
-        elif self.opcode & 0xF000 == 0x3000:
-            print(
-                f"{hex(self.opcode)}: SE V{hex(self.opcode & 0x0F00 >> 8)}, {hex(self.opcode & 0x00FF)}"
-            )
-        elif self.opcode & 0xF000 == 0x4000:
-            print(
-                f"{hex(self.opcode)}: SNE V{hex(self.opcode & 0x0F00 >> 8)}, {hex(self.opcode & 0x00FF)}"
-            )
-        elif self.opcode & 0xF000 == 0x5000:
-            print(
-                f"{hex(self.opcode)}: SE V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x6000:
-            print(
-                f"{hex(self.opcode)}: LD V{hex(self.opcode & 0x0F00 >> 8)}, {hex(self.opcode & 0x00FF)}"
-            )
-        elif self.opcode & 0xF000 == 0x7000:
-            print(
-                f"{hex(self.opcode)}: ADD V{hex(self.opcode & 0x0F00 >> 8)}, {hex(self.opcode & 0x00FF)}"
-            )
-        elif self.opcode & 0xF000 == 0x8000:
-            print(
-                f"{hex(self.opcode)}: LD V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8001:
-            print(
-                f"{hex(self.opcode)}: OR V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8002:
-            print(
-                f"{hex(self.opcode)}: AND V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8003:
-            print(
-                f"{hex(self.opcode)}: XOR V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8004:
-            print(
-                f"{hex(self.opcode)}: ADD V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8005:
-            print(
-                f"{hex(self.opcode)}: SUB V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x8006:
-            print(f"{hex(self.opcode)}: SHR V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0x8007:
-            print(
-                f"{hex(self.opcode)}: SUBN V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0x800E:
-            print(f"{hex(self.opcode)}: SHL V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0x9000:
-            print(
-                f"{hex(self.opcode)}: SNE V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}"
-            )
-        elif self.opcode & 0xF000 == 0xA000:
-            print(f"{hex(self.opcode)}: LD I, {hex(self.opcode & 0x0FFF)}")
-        elif self.opcode & 0xF000 == 0xB000:
-            print(f"{hex(self.opcode)}: JP V0, {hex(self.opcode & 0x0FFF)}")
-        elif self.opcode & 0xF000 == 0xC000:
-            print(
-                f"{hex(self.opcode)}: RND V{hex(self.opcode & 0x0F00 >> 8)}, {hex(self.opcode & 0x00FF)}"
-            )
-        elif self.opcode & 0xF000 == 0xD000:
-            print(
-                f"{hex(self.opcode)}: DRW V{hex(self.opcode & 0x0F00 >> 8)}, V{hex(self.opcode & 0x00F0 >> 4)}, {hex(self.opcode & 0x000F)}"
-            )
-        elif self.opcode & 0xF000 == 0xE09E:
-            print(f"{hex(self.opcode)}: SKP V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xE0A1:
-            print(f"{hex(self.opcode)}: SKNP V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF007:
-            print(f"{hex(self.opcode)}: LD V{hex(self.opcode & 0x0F00 >> 8)}, DT")
-        elif self.opcode & 0xF000 == 0xF00A:
-            print(f"{hex(self.opcode)}: LD V{hex(self.opcode & 0x0F00 >> 8)}, K")
-        elif self.opcode & 0xF000 == 0xF015:
-            print(f"{hex(self.opcode)}: LD DT, V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF018:
-            print(f"{hex(self.opcode)}: LD ST, V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF01E:
-            print(f"{hex(self.opcode)}: ADD I, V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF029:
-            print(f"{hex(self.opcode)}: LD F, V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF033:
-            print(f"{hex(self.opcode)}: LD B, V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF055:
-            print(f"{hex(self.opcode)}: LD [I], V{hex(self.opcode & 0x0F00 >> 8)}")
-        elif self.opcode & 0xF000 == 0xF065:
-            print(f"{hex(self.opcode)}: LD V{hex(self.opcode & 0x0F00 >> 8)}, [I]")
-        else:
-            print("------------------------")
-            print(f"Unknown opcode: {hex(self.opcode)}")
-            print(f"PC: {hex(self.pc)}")
-            print(f"V0: {hex(self.V[0])}")
-            print(f"V1: {hex(self.V[1])}")
-            print(f"V2: {hex(self.V[2])}")
-            print(f"V3: {hex(self.V[3])}")
-            print(f"V4: {hex(self.V[4])}")
-            print(f"V5: {hex(self.V[5])}")
-            print(f"V6: {hex(self.V[6])}")
-            print(f"V7: {hex(self.V[7])}")
-            print(f"V8: {hex(self.V[8])}")
-            print(f"V9: {hex(self.V[9])}")
-            print(f"VA: {hex(self.V[10])}")
-            print(f"VB: {hex(self.V[11])}")
-            print(f"VC: {hex(self.V[12])}")
-            print(f"VD: {hex(self.V[13])}")
-            print(f"VE: {hex(self.V[14])}")
-            print(f"VF: {hex(self.V[15])}")
-            print(f"I: {hex(self.I)}")
-            print(f"SP: {hex(self.sp)}")
-            print(f"Stack: {self.stack}")
-            print(f"Delay timer: {self.delay_timer}")
-            print(f"Sound timer: {self.sound_timer}")
-            print(f"The issue occurred at opcode {hex(self.opcode)}, PC {hex(self.pc)}")
-            print(
-                f"The calculation that caused the issue was {hex(self.opcode & 0xF000)}"
-            )
-            print("------------------------")
-        print(hex(self.opcode))
+        description = self.get_opcode_description(self.opcode)
+        print(f"Opcode: {hex(self.opcode)} ({description})")
+        print(f"Jumping to address {hex(self.pc + 2)}")
 
     def execute_opcode(self):
         # pdb.set_trace()
@@ -456,7 +394,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         nn = self.opcode & 0x00FF  # Get the value
         print(f"Adding {hex(nn)} to V{x}")
-        self.V[x] = self.V[x] + nn  # Add NN to VX
+        self.V[x] = (self.V[x] + nn) & 0xFF  # Add NN to VX
         self.pc += 2
 
     def opcode_8xxx(
@@ -464,8 +402,9 @@ class Chip8:
     ):  # Calls a more specific opcode function based on the last nibble.
         """Calls a more specific opcodeself.I = self.opcode & 0x0FFF  # Set I to NNN function based on the last nibble."""
         print(f"Calling opcode function 8xxx")
-        self.opcode_table_8xxx.get(self.opcode & 0x000F)
-        self.pc += 2
+        func = self.opcode_table_8xxx.get(self.opcode & 0x000F)
+        if func:
+            func()
 
     def opcode_8xy0(self):  # LD Vx, Vy
         """Sets VX to the value of VY."""
@@ -532,11 +471,11 @@ class Chip8:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[x] -= self.V[y]
+        self.V[x] = (self.V[x] - self.V[y] + 0x100) & 0xFF
         print(f"V{x} = {self.V[x]}")
         self.pc += 2
 
-    def opcode_8xy6(self):
+    def opcode_8xy6(self):  # SHR Vx {, Vy}
         """Set Vx = Vx SHR 1.
         If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
         Then Vx is divided by 2.
@@ -562,23 +501,20 @@ class Chip8:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[x] = self.V[y] - self.V[x]
+        self.V[x] = (self.V[y] - self.V[x] + 0x100) & 0xFF
         self.pc += 2
 
-    def opcode_8xyE(
-        self,
-    ):  # SHL Vx {, Vy}
+    def opcode_8xyE(self):  # SHL Vx {, Vy}
         """Set Vx = Vx SHL 1.
         If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
-        A left shift is performed (multiplication by 2), and the most significant bit is saved in Register VF.
         """
         x = (self.opcode & 0x0F00) >> 8
-        y = (self.opcode & 0x00F0) >> 4
-        if self.V[x] & 0x80 == 0x80:
-            self.V[0xF] = 1
-        else:
-            self.V[0xF] = 0
-        self.V[x] = self.V[x] << 1
+        # Check the most significant bit of Vx before the shift
+        self.V[0xF] = (self.V[x] & 0x80) >> 7
+        # Shift Vx left by one
+        self.V[x] <<= 1
+        # Only keep the lowest 8 bits
+        self.V[x] &= 0xFF
         self.pc += 2
 
     def opcode_9xxx(self):  # SNE Vx, Vy
@@ -589,9 +525,9 @@ class Chip8:
         y = (self.opcode & 0x00F0) >> 4  # Get the register index
         # Skip the next instruction if VX doesn't equal VY
         if self.V[x] != self.V[y]:
-            self.pc += 2
-        else:
             self.pc += 4
+        else:
+            self.pc += 2
 
     def opcode_Axxx(self):  # LD I, addr
         """Sets I to the address NNN."""
@@ -679,20 +615,12 @@ class Chip8:
 
     def opcode_Fxxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
-        extracted_opcode = self.opcode & 0x00FF
-        print("=====================================")
-        print(f"Opcode: {hex(self.opcode)}")
-        print(f"Extracted opcode: {hex(extracted_opcode)}")
-        print(f"Opcode table: {self.opcode_table_Fxxx}")
-        print("=====================================")
-        print(f"Calling opcode function Fxxx")
         func = self.opcode_table_Fxxx.get(
             self.opcode & 0x00FF
         )  # Get the function from the table
 
         if func:
             func()  # Call the function
-            print(f"Got function {func}")
         else:
             raise ValueError(f"Invalid opcode: {hex(self.opcode)}")
 
@@ -791,6 +719,9 @@ class Chip8:
 
     def emulate_cycle(self):  # Emulates one cycle of the CHIP-8 CPU
         """Emulates one cycle of the CHIP-8 CPU."""
+        print(
+            "=============================================================================="
+        )
         if self.waiting_for_keypress:  # If the emulator is waiting for a key press
             self.pc -= 2  # Skip the cycle
         self.fetch_opcode()
@@ -802,6 +733,9 @@ class Chip8:
         if current_time - self.last_timer_update >= 1 / 60:  # 60Hz
             self.update_timers()  # Update the timers
             self.last_timer_update = current_time  # Reset the timer
+        print(
+            "=============================================================================="
+        )
 
     def update_timers(self):
         """Updates the delay and sound timers."""
@@ -864,12 +798,6 @@ class Chip8:
         """Main loop of the emulator."""
         running = True
         while running:
-            print(f"PC: {hex(self.pc)}")
-            print(f"Opcode: {hex(self.opcode)}")
-            print(f"I: {hex(self.I)}")
-            print(f"SP: {hex(self.sp)}")
-            print(f"Delay timer: {hex(self.delay_timer)}")
-            print(f"Sound timer: {hex(self.sound_timer)}")
             if self.key_register is not None:
                 print(f"Key register: {hex(self.key_register)}")
             else:
