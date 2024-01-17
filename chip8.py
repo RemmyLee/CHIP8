@@ -121,40 +121,40 @@ class Chip8:
         }
 
         self.opcode_patterns = {
-            0x00E0: "CLS",
-            0x00EE: "RET",
-            0x1000: "JP {nnn}",
-            0x2000: "CALL {nnn}",
-            0x3000: "SE V{x}, {kk}",
-            0x4000: "SNE V{x}, {kk}",
-            0x5000: "SE V{x}, V{y}",
-            0x6000: "LD V{x}, {kk}",
-            0x7000: "ADD V{x}, {kk}",
-            0x8000: "LD V{x}, V{y}",
-            0x8001: "OR V{x}, V{y}",
-            0x8002: "AND V{x}, V{y}",
-            0x8003: "XOR V{x}, V{y}",
-            0x8004: "ADD V{x}, V{y}",
-            0x8005: "SUB V{x}, V{y}",
-            0x8006: "SHR V{x}",
-            0x8007: "SUBN V{x}, V{y}",
-            0x800E: "SHL V{x}",
-            0x9000: "SNE V{x}, V{y}",
-            0xA000: "LD I, {nnn}",
-            0xB000: "JP V0, {nnn}",
-            0xC000: "RND V{x}, {kk}",
-            0xD000: "DRW V{x}, V{y}, {n}",
-            0xE09E: "SKP V{x}",
-            0xE0A1: "SKNP V{x}",
-            0xF007: "LD V{x}, DT",
-            0xF00A: "LD V{x}, K",
-            0xF015: "LD DT, V{x}",
-            0xF018: "LD ST, V{x}",
-            0xF01E: "ADD I, V{x}",
-            0xF029: "LD F, V{x}",
-            0xF033: "LD B, V{x}",
-            0xF055: "LD [I], V{x}",
-            0xF065: "LD V{x}, [I]",
+            0x00E0: "CLS",  # Clear the display
+            0x00EE: "RET",  # Return from a subroutine
+            0x1000: "JP {nnn}",  # Jump to address NNN
+            0x2000: "CALL {nnn}",  # Call subroutine at NNN
+            0x3000: "SE V{x}, {kk}",  # Skip the next instruction if VX equals NN
+            0x4000: "SNE V{x}, {kk}",  # Skip the next instruction if VX doesn't equal NN
+            0x5000: "SE V{x}, V{y}",  # Skip the next instruction if VX equals VY
+            0x6000: "LD V{x}, {kk}",  # Set VX to NN
+            0x7000: "ADD V{x}, {kk}",  # Adds NN to VX (carry flag is not changed)
+            0x8000: "LD V{x}, V{y}",  # Set VX to the value of VY
+            0x8001: "OR V{x}, V{y}",  # Set VX to VX OR VY
+            0x8002: "AND V{x}, V{y}",  # Set VX to VX AND VY
+            0x8003: "XOR V{x}, V{y}",  # Set VX to VX XOR VY
+            0x8004: "ADD V{x}, V{y}",  # Add VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't
+            0x8005: "SUB V{x}, V{y}",  # VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't
+            0x8006: "SHR V{x}",  # Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift
+            0x8007: "SUBN V{x}, V{y}",  # Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't
+            0x800E: "SHL V{x}",  # Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift
+            0x9000: "SNE V{x}, V{y}",  # Skip the next instruction if VX doesn't equal VY
+            0xA000: "LD I, {nnn}",  # Set I to NNN
+            0xB000: "JP V0, {nnn}",  # Jump to address NNN plus V0
+            0xC000: "RND V{x}, {kk}",  # Set VX to the result of a bitwise AND operation on a random number and NN
+            0xD000: "DRW V{x}, V{y}, {n}",  # Draws a sprite at coordinate (VX, VY) with width of 8 pixels and height of N pixels
+            0xE09E: "SKP V{x}",  # Skip the next instruction if the key stored in VX is pressed
+            0xE0A1: "SKNP V{x}",  # Skip the next instruction if the key stored in VX isn't pressed
+            0xF007: "LD V{x}, DT",  # Set VX to the value of the delay timer
+            0xF00A: "LD V{x}, K",  # Wait for a key press, store the value of the key in VX
+            0xF015: "LD DT, V{x}",  # Set the delay timer to VX
+            0xF018: "LD ST, V{x}",  # Set the sound timer to VX
+            0xF01E: "ADD I, V{x}",  # Add VX to I
+            0xF029: "LD F, V{x}",  # Set I to the location of the sprite for the character in VX
+            0xF033: "LD B, V{x}",  # Store the binary-coded decimal representation of VX at the addresses I, I+1, and I+2
+            0xF055: "LD [I], V{x}",  # Store the values of registers V0 to VX inclusive in memory starting at address I
+            0xF065: "LD V{x}, [I]",  # Read the values of registers V0 to VX inclusive from memory starting at address I
         }
 
         self.load_fontset()  # Load the fontset into memory
@@ -245,18 +245,23 @@ class Chip8:
         ]
         for i in range(len(fontset)):
             # Load the fontset into memory at 0x50
-            self.memory[0x50 + i] = fontset[i]
+            self.memory[0x50 + i] = fontset[i]  # Load the fontset into memory
 
     def get_opcode_description(self, opcode):
-        nnn = opcode & 0x0FFF
-        kk = opcode & 0x00FF
-        x = (opcode & 0x0F00) >> 8
-        y = (opcode & 0x00F0) >> 4
-        n = opcode & 0x000F
+        nnn = opcode & 0x0FFF  # Get the last three nibbles
+        kk = opcode & 0x00FF  # Get the last two nibbles
+        x = (opcode & 0x0F00) >> 8  # Get the register index
+        y = (opcode & 0x00F0) >> 4  # Get the register index
+        n = opcode & 0x000F  # Get the last nibble
 
         # Match the opcode against patterns and call the function if matched
-        for pattern, message in self.opcode_patterns.items():
-            if (opcode & 0xF000) == (pattern & 0xF000):
+        for (
+            pattern,
+            message,
+        ) in self.opcode_patterns.items():  # Loop through the patterns
+            if (opcode & 0xF000) == (
+                pattern & 0xF000
+            ):  # Pattern includes the first nibble
                 if (
                     pattern & 0x0F00
                 ):  # Pattern includes a nibble that must match exactly
@@ -271,14 +276,20 @@ class Chip8:
                     if (opcode & 0x00FF) != (pattern & 0x00FF):
                         continue
                 # Format the message
-                return message.format(nnn=nnn, kk=kk, x=x, y=y, n=n)
+                return message.format(
+                    nnn=nnn, kk=kk, x=x, y=y, n=n
+                )  # Return the formatted message
         return "Unknown opcode"
 
     def fetch_opcode(self):
         """Fetches the next opcode from memory and increments the program counter."""
         print(f"Fetching opcode from address {hex(self.pc)}")
-        self.opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
-        description = self.get_opcode_description(self.opcode)
+        self.opcode = (
+            self.memory[self.pc] << 8 | self.memory[self.pc + 1]
+        )  # Fetch the opcode
+        description = self.get_opcode_description(
+            self.opcode
+        )  # Get the opcode description
         print(f"Opcode: {hex(self.opcode)} ({description})")
         print(f"Jumping to address {hex(self.pc + 2)}")
 
@@ -286,25 +297,25 @@ class Chip8:
         # pdb.set_trace()
         """Calls a more specific opcode function based on the first nibble."""
         print(f"Executing opcode {hex(self.opcode)}")
-        self.opcode_table[self.opcode & 0xF000]()
-        if self.delay_timer > 0:
-            self.delay_timer -= 1
-        if self.sound_timer > 0:
-            self.sound_timer -= 1
+        self.opcode_table[self.opcode & 0xF000]()  # Call the opcode function
+        if self.delay_timer > 0:  # Update the timers
+            self.delay_timer -= 1  # Decrement the delay timer
+        if self.sound_timer > 0:  # Update the timers
+            self.sound_timer -= 1  # Decrement the sound timer
 
     def opcode_0xxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
         print(f"Calling opcode function {hex(self.opcode & 0x00FF)}")
-        opcode = self.opcode & 0x00FF
-        if opcode in self.opcode_table_0xxx:
-            self.opcode_table_0xxx[opcode]()
+        opcode = self.opcode & 0x00FF  # Get the last two nibbles
+        if opcode in self.opcode_table_0xxx:  # Check if the opcode is valid
+            self.opcode_table_0xxx[opcode]()  # Call the opcode function
 
     def opcode_00E0(self):  # CLS
         """Clear the display.
         We can simply set the entire video buffer to zeroes."""
         print(f"Clearing the screen")
-        self.display = [[0 for _ in range(64)] for _ in range(32)]
-        self.pc += 2
+        self.display = [[0 for _ in range(64)] for _ in range(32)]  # Clear the display
+        self.pc += 2  # Increment PC by 2
 
     def opcode_00EE(self):  # RET
         """Return from a subroutine.
@@ -314,13 +325,12 @@ class Chip8:
         print(f"Returning from a subroutine")
         self.sp -= 1  # Decrement stack pointer
         self.pc = self.stack[self.sp]  # Return to the stored address
-        self.pc += 2
+        self.pc += 2  # Increment PC by 2
 
     def opcode_1xxx(self):  # JP addr
         """Jump to location nnn.
         The interpreter sets the program counter to nnn.
         A jump doesn’t remember its origin, so no stack interaction required."""
-        print(f"Jumping to address {hex(self.opcode & 0x0FFF)}")
         nn = self.opcode & 0x0FFF  # Get the address
         self.pc = nn  # Set PC to NNN
 
@@ -334,7 +344,7 @@ class Chip8:
         print(f"Calling subroutine at address {hex(self.opcode & 0x0FFF)}")
         nn = self.opcode & 0x0FFF  # Get the address
         self.stack[self.sp] = self.pc  # Put the current PC on the stack
-        self.sp += 1
+        self.sp += 1  # Increment stack pointer
         self.pc = nn  # Set PC to NNN
 
     def opcode_3xxx(self):  # SE Vx, byte
@@ -345,10 +355,10 @@ class Chip8:
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         x = (self.opcode & 0x0F00) >> 8
         nn = self.opcode & 0x00FF
-        if self.V[x] == nn:
-            self.pc += 4
+        if self.V[x] == nn:  # Skip the next instruction if VX equals NN
+            self.pc += 4  # Skip the next instruction
         else:
-            self.pc += 2
+            self.pc += 2  # Don't skip the next instruction
 
     def opcode_4xxx(self):  # SNE Vx, byte
         """Skip next instruction if Vx != kk.
@@ -357,10 +367,10 @@ class Chip8:
         print(f"Comparing V{self.opcode & 0x0F00 >> 8} to {hex(self.opcode & 0x00FF)}")
         x = (self.opcode & 0x0F00) >> 8  # Get the register index
         nn = self.opcode & 0x00FF
-        if self.V[x] != nn:
-            self.pc += 4
+        if self.V[x] != nn:  # Skip the next instruction if VX doesn't equal NN
+            self.pc += 4  # Skip the next instruction
         else:
-            self.pc += 2
+            self.pc += 2  # Don't skip the next instruction
 
     def opcode_5xxx(self):  # SE Vx, Vy
         """Skip next instruction if Vx = Vy.
@@ -372,14 +382,14 @@ class Chip8:
         print(f"Comparing V{x} to V{y}")
 
         # Check if the last nibble 'n' is 0x0; if not, it's an invalid opcode
-        if n != 0x0:
+        if n != 0x0:  # Invalid opcode
             raise ValueError(f"Invalid opcode: {hex(self.opcode)}")
 
         # Skip the next instruction if VX equals VY
         if self.V[x] == self.V[y]:
-            self.pc += 4
+            self.pc += 4  # Skip the next instruction
         else:
-            self.pc += 2
+            self.pc += 2  # Don't skip the next instruction
 
     def opcode_6xxx(self):  # LD Vx, byte
         """Sets VX to NN."""
@@ -387,7 +397,7 @@ class Chip8:
         nn = self.opcode & 0x00FF  # Get the byte value (nn)
         self.V[x] = nn  # Set VX to NN
         print(f"Setting V{x} to {hex(nn)}")
-        self.pc += 2
+        self.pc += 2  # Increment PC by 2
 
     def opcode_7xxx(self):  # ADD Vx, byte
         """Adds NN to VX (carry flag is not changed)."""
@@ -395,7 +405,7 @@ class Chip8:
         nn = self.opcode & 0x00FF  # Get the value
         print(f"Adding {hex(nn)} to V{x}")
         self.V[x] = (self.V[x] + nn) & 0xFF  # Add NN to VX
-        self.pc += 2
+        self.pc += 2  # Increment PC by 2
 
     def opcode_8xxx(
         self,
@@ -419,7 +429,8 @@ class Chip8:
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
-        self.V[x] |= self.V[y]
+        self.V[x] |= self.V[y]  # Set VX to the value of VX OR VY
+        self.V[0xF] = 0  # Set VF to 0  for quirks
         self.pc += 2
 
     def opcode_8xy2(self):  # AND Vx, Vy
@@ -428,6 +439,7 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] &= self.V[y]
+        self.V[0xF] = 0  # Set VF to 0  for quirks
         self.pc += 2
 
     def opcode_8xy3(self):  # XOR Vx, Vy
@@ -435,7 +447,8 @@ class Chip8:
         print(f"Setting V{self.opcode & 0x0F00 >> 8} to V{self.opcode & 0x00F0 >> 4}")
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
-        self.V[x] ^= self.V[y]
+        self.V[x] ^= self.V[y]  # Set VX to the value of VX XOR VY
+        self.V[0xF] = 0  # Set VF to 0  for quirks
         self.pc += 2
 
     def opcode_8xy4(self):  # ADD Vx, Vy
@@ -450,11 +463,11 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         sum = self.V[x] + self.V[y]
+        self.V[x] = sum & 0xFF
         if sum > 255:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[x] = sum & 0xFF
         print(f"V{x} = {self.V[x]}")
         self.pc += 2
 
@@ -467,11 +480,11 @@ class Chip8:
         )
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
+        self.V[x] = (self.V[x] - self.V[y] + 0x100) & 0xFF
         if self.V[x] > self.V[y]:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[x] = (self.V[x] - self.V[y] + 0x100) & 0xFF
         print(f"V{x} = {self.V[x]}")
         self.pc += 2
 
@@ -497,11 +510,11 @@ class Chip8:
         )
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
+        self.V[x] = (self.V[y] - self.V[x] + 0x100) & 0xFF
         if self.V[y] > self.V[x]:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
-        self.V[x] = (self.V[y] - self.V[x] + 0x100) & 0xFF
         self.pc += 2
 
     def opcode_8xyE(self):  # SHL Vx {, Vy}
@@ -512,7 +525,7 @@ class Chip8:
         # Check the most significant bit of Vx before the shift
         self.V[0xF] = (self.V[x] & 0x80) >> 7
         # Shift Vx left by one
-        self.V[x] <<= 1
+        self.V[x] <<= 1 & 0xFF
         # Only keep the lowest 8 bits
         self.V[x] &= 0xFF
         self.pc += 2
@@ -704,16 +717,17 @@ class Chip8:
         print(f"Storing V0 through V{x} in memory starting at address I")
         for i in range(x + 1):  # Store V0 through Vx in memory starting at address I
             self.memory[self.I + i] = self.V[i]
-        # self.I += x + 1
+        self.I += x + 1
         self.pc += 2
 
-    def opcode_Fx65(self):
+    def opcode_Fx65(self):  # LD Vx, [I]
         x = (self.opcode & 0x0F00) >> 8
         print(f"Loading V0 through V{x} from memory starting at address I")
         print(f"Before executing Fx65, PC: {hex(self.pc)}")
         for i in range(x + 1):
             self.V[i] = self.memory[self.I + i]
         print(f"Loaded memory into V0 to V{x}: {[hex(v) for v in self.V[:x+1]]}")
+        self.I += x + 1
         self.pc += 2
         print(f"After executing Fx65, PC: {hex(self.pc)}")
 
@@ -726,7 +740,6 @@ class Chip8:
             self.pc -= 2  # Skip the cycle
         self.fetch_opcode()
         self.execute_opcode()
-
         # Delay timer and sound timer should be updated at a rate of 60Hz
         # If your main loop is running faster than 60Hz, you may need to call this less frequently
         current_time = time.time()
