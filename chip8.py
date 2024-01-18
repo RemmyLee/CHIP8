@@ -7,6 +7,9 @@ import random
 import sys
 from OpenGL.GL import *
 from OpenGL.GLUT import *
+import tkinter as tk
+from threading import Thread
+import time
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -160,6 +163,44 @@ class Chip8:
         self.load_fontset()  # Load the fontset into memory
         self.load_game(filename)
 
+    def setup_hex_viewer(self):
+        # Start the Tkinter hex viewer in a separate thread
+        self.hex_viewer_thread = Thread(target=self.run_hex_viewer, daemon=True)
+        self.hex_viewer_thread.start()
+
+    def run_hex_viewer(self):
+        # Create and set up the Tkinter window
+        self.hex_viewer_root = tk.Tk()
+        self.hex_viewer_root.title("Hex Viewer")
+
+        # Create a Text widget for displaying the hex dump
+        self.hex_viewer_text = tk.Text(self.hex_viewer_root, font=("Courier", 10))
+        self.hex_viewer_text.pack(expand=True, fill=tk.BOTH)
+
+        # Update the hex dump periodically
+        self.update_hex_viewer()
+
+        # Start the Tkinter main loop
+        self.hex_viewer_root.mainloop()
+
+    def update_hex_viewer(self):
+        # Save current scroll position
+        scroll_pos = self.hex_viewer_text.yview()
+        # Clear the current content
+        self.hex_viewer_text.delete("1.0", tk.END)
+        # Generate and display the new hex dump with addresses
+        hex_dump = "\n".join(
+            f"{i:04X}: " + " ".join(f"{byte:02X}" for byte in self.memory[i : i + 16])
+            for i in range(0, len(self.memory), 16)
+        )
+        self.hex_viewer_text.insert("1.0", hex_dump)
+        # Restore the scroll position
+        self.hex_viewer_text.yview_moveto(scroll_pos[0])
+        # Schedule the next update
+        self.hex_viewer_root.after(
+            16, self.update_hex_viewer
+        )  # Update more frequently if needed
+
     def load_fontset(self):
         fontset = [
             0xF0,
@@ -283,7 +324,7 @@ class Chip8:
 
     def fetch_opcode(self):
         """Fetches the next opcode from memory and increments the program counter."""
-        print(f"Fetching opcode from address {hex(self.pc)}")
+        print(f"Fetching opcode from address: {hex(self.pc)}")
         self.opcode = (
             self.memory[self.pc] << 8 | self.memory[self.pc + 1]
         )  # Fetch the opcode
@@ -291,21 +332,17 @@ class Chip8:
             self.opcode
         )  # Get the opcode description
         print(f"Opcode: {hex(self.opcode)} ({description})")
-        print(f"Jumping to address {hex(self.pc + 2)}")
+        print(f"Jumping to address: {hex(self.pc + 2)}")
 
     def execute_opcode(self):
         # pdb.set_trace()
         """Calls a more specific opcode function based on the first nibble."""
-        print(f"Executing opcode {hex(self.opcode)}")
+        print(f"Executing opcode: {hex(self.opcode)}")
         self.opcode_table[self.opcode & 0xF000]()  # Call the opcode function
-        if self.delay_timer > 0:  # Update the timers
-            self.delay_timer -= 1  # Decrement the delay timer
-        if self.sound_timer > 0:  # Update the timers
-            self.sound_timer -= 1  # Decrement the sound timer
 
     def opcode_0xxx(self):
         """Calls a more specific opcode function based on the last two nibbles."""
-        print(f"Calling opcode function {hex(self.opcode & 0x00FF)}")
+        print(f"Calling opcode function: {hex(self.opcode & 0x00FF)}")
         opcode = self.opcode & 0x00FF  # Get the last two nibbles
         if opcode in self.opcode_table_0xxx:  # Check if the opcode is valid
             self.opcode_table_0xxx[opcode]()  # Call the opcode function
@@ -464,41 +501,28 @@ class Chip8:
         y = (self.opcode & 0x00F0) >> 4
         sum = self.V[x] + self.V[y]
         self.V[x] = sum & 0xFF
-        if sum > 255:
-            self.V[0xF] = 1
-        else:
-            self.V[0xF] = 0
-        print(f"V{x} = {self.V[x]}")
+        self.V[0xF] = 1 if sum > 0xFF else 0  # Set carry flag
         self.pc += 2
 
     def opcode_8xy5(self):  # SUB Vx, Vy
         """Set Vx = Vx - Vy, set VF = NOT borrow.
-        If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx,
-        and the results stored in Vx."""
+        The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
+        """
         print(
             f"Subtracting V{self.opcode & 0x00F0 >> 4} from V{self.opcode & 0x0F00 >> 8}"
         )
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
-        self.V[x] = (self.V[x] - self.V[y] + 0x100) & 0xFF
-        if self.V[x] > self.V[y]:
-            self.V[0xF] = 1
-        else:
-            self.V[0xF] = 0
-        print(f"V{x} = {self.V[x]}")
+        self.V[0xF] = 1 if self.V[x] >= self.V[y] else 0  # Set not borrow flag
+        self.V[x] = (self.V[x] - self.V[y]) & 0xFF
         self.pc += 2
 
     def opcode_8xy6(self):  # SHR Vx {, Vy}
-        """Set Vx = Vx SHR 1.
-        If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
-        Then Vx is divided by 2.
-        """
-        x = (self.opcode & 0x0F00) >> 8  # Get the register index
-        if self.V[x] & 0x1 == 0x1:
-            self.V[0xF] = 1
-        else:
-            self.V[0xF] = 0
-        self.V[x] = self.V[x] >> 1
+        """Set Vx = Vx SHR 1, set VF to the least significant bit of Vx before the shift."""
+        x = (self.opcode & 0x0F00) >> 8
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[0xF] = self.V[y] & 0x1
+        self.V[x] = self.V[y] >> 1
         self.pc += 2
 
     def opcode_8xy7(self):  # SUBN Vx, Vy
@@ -510,11 +534,11 @@ class Chip8:
         )
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
-        self.V[x] = (self.V[y] - self.V[x] + 0x100) & 0xFF
-        if self.V[y] > self.V[x]:
+        if self.V[y] >= self.V[x]:
             self.V[0xF] = 1
         else:
             self.V[0xF] = 0
+        self.V[x] = (self.V[y] - self.V[x]) & 0xFF
         self.pc += 2
 
     def opcode_8xyE(self):  # SHL Vx {, Vy}
@@ -522,12 +546,9 @@ class Chip8:
         If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
         """
         x = (self.opcode & 0x0F00) >> 8
-        # Check the most significant bit of Vx before the shift
-        self.V[0xF] = (self.V[x] & 0x80) >> 7
-        # Shift Vx left by one
-        self.V[x] <<= 1 & 0xFF
-        # Only keep the lowest 8 bits
-        self.V[x] &= 0xFF
+        y = (self.opcode & 0x00F0) >> 4
+        self.V[0xF] = (self.V[y] & 0x80) >> 7
+        self.V[x] = (self.V[y] << 1) & 0xFF
         self.pc += 2
 
     def opcode_9xxx(self):  # SNE Vx, Vy
@@ -550,7 +571,7 @@ class Chip8:
 
     def opcode_Bxxx(self):
         print(f"Jumping to address {hex(self.opcode & 0x0FFF)} plus V0")
-        self.pc = self.V[0] + (self.opcode & 0x0FFF)  # Jump to NNN + V0
+        self.pc = self.V[0] + (self.opcode & 0x0FFF)
 
     def opcode_Cxxx(
         self,
@@ -588,13 +609,14 @@ class Chip8:
             pixel = self.memory[self.I + yline]  # Get the current line of the sprite
 
             for xline in range(8):  # Each sprite is 8 pixels wide
-                if (pixel & (0x80 >> xline)) != 0:  # If the current pixel is on
-                    dx = (x + xline) % 64  # Wrap around the screen horizontally
-                    dy = (y + yline) % 32  # Wrap around the screen vertically
-
-                    if self.display[dy][dx] == 1:  # If the pixel is already on
-                        self.V[0xF] = 1  # Set VF to 1 (collision)
-                    self.display[dy][dx] ^= 1  # XOR the pixel
+                if (pixel & (0x80 >> xline)) != 0:
+                    dx = x + xline
+                    dy = y + yline
+                    # Check if the pixel coordinates are within the display bounds
+                    if 0 <= dx < 64 and 0 <= dy < 32:
+                        if self.display[dy][dx] == 1:
+                            self.V[0xF] = 1  # Collision occurred
+                        self.display[dy][dx] ^= 1  # XOR the pixel
         self.pc += 2
 
     def opcode_Exxx(self):
@@ -657,8 +679,7 @@ class Chip8:
                 key_pressed = True
                 break
         if not key_pressed:
-            return  # Stay at the current instruction if no key is pressed
-        self.pc += 2
+            self.waiting_for_keypress = True
 
     def opcode_Fx15(self):  # LD DT, Vx
         """Sets the delay timer to VX."""
@@ -736,8 +757,12 @@ class Chip8:
         print(
             "=============================================================================="
         )
-        if self.waiting_for_keypress:  # If the emulator is waiting for a key press
-            self.pc -= 2  # Skip the cycle
+        if not self.waiting_for_keypress:
+            self.fetch_opcode()
+            self.execute_opcode()
+        else:
+            if self.check_keys():  # Method to check if a key is pressed
+                self.waiting_for_keypress = False
         self.fetch_opcode()
         self.execute_opcode()
         # Delay timer and sound timer should be updated at a rate of 60Hz
@@ -810,6 +835,7 @@ class Chip8:
     def main_loop(self):
         """Main loop of the emulator."""
         running = True
+        self.setup_hex_viewer()
         while running:
             if self.key_register is not None:
                 print(f"Key register: {hex(self.key_register)}")
@@ -840,7 +866,7 @@ class Chip8:
             self.set_keys()
             self.draw_graphics()
             # Run the emulator at 500Hz (500 cycles per second)
-            time.sleep(0.0015)
+            time.sleep(1 / 500)
             # time.sleep(1)
 
         pygame.quit()
