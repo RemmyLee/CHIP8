@@ -259,7 +259,7 @@ class Chip8CPU:
             self.I = (self.I + self.V[x]) & 0xFFF
             self.pc += 2
         elif self.opcode & 0xF0FF == 0xF029:  # Fx29
-            self.I = self.V[x] * 5
+            self.I = 0x50 + (self.V[x] * 5)
             self.pc += 2
         elif self.opcode & 0xF0FF == 0xF033:  # Fx33
             self.memory[self.I] = self.V[x] // 100
