@@ -571,7 +571,9 @@ class Chip8:
 
     def opcode_Bxxx(self):
         print(f"Jumping to address {hex(self.opcode & 0x0FFF)} plus V0")
-        self.pc = self.V[0] + (self.opcode & 0x0FFF)
+        nnn = self.opcode & 0x0FFF  # Get the address
+        self.pc = nnn + self.V[0]  # Set PC to NNN + V0
+        time.sleep(30)
 
     def opcode_Cxxx(
         self,
@@ -867,7 +869,6 @@ class Chip8:
             self.draw_graphics()
             # Run the emulator at 500Hz (500 cycles per second)
             time.sleep(1 / 500)
-            # time.sleep(1)
 
         pygame.quit()
 

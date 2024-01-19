@@ -358,14 +358,12 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] |= self.V[y]
-        self.V[0xF] = 0
         self.pc += 2
 
     def opcode_8xy2(self):
         x = (self.opcode & 0x0F00) >> 8
         y = (self.opcode & 0x00F0) >> 4
         self.V[x] &= self.V[y]
-        self.V[0xF] = 0
         self.pc += 2
 
     def opcode_8xy3(self):
@@ -526,14 +524,12 @@ class Chip8:
         x = (self.opcode & 0x0F00) >> 8
         for i in range(x + 1):
             self.memory[self.I + i] = self.V[i]
-        self.I += x + 1
         self.pc += 2
 
     def opcode_Fx65(self):
         x = (self.opcode & 0x0F00) >> 8
         for i in range(x + 1):
             self.V[i] = self.memory[self.I + i]
-        self.I += x + 1
         self.pc += 2
 
     def emulate_cycle(self):

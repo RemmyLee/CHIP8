@@ -7,16 +7,11 @@ from sound import Chip8Sound
 
 
 def main(rom_file):
-    # Initialize CPU, Input, Graphics, and Sound
     cpu = Chip8CPU()
     input_handler = Chip8Input()
     graphics = Chip8Graphics()
     sound = Chip8Sound()
-
-    # Load the game
     cpu.load_game(rom_file)
-
-    # Main emulation loop
     running = True
     while running:
         running = input_handler.process_events(cpu)
