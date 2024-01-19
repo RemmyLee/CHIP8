@@ -1,9 +1,9 @@
 import sys
 import pygame
-from cpu import Chip8CPU
-from input import Chip8Input
-from graphics import Chip8Graphics
-from sound import Chip8Sound
+from system.cpu import Chip8CPU
+from system.input import Chip8Input
+from system.graphics import Chip8Graphics
+from system.sound import Chip8Sound
 
 
 def main(rom_file):
