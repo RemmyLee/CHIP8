@@ -17,8 +17,6 @@ This Python project is an interpreter for the CHIP-8, an interpreted programming
 
 ## Installation
 
-Ensure you have Python installed on your system. You can then clone the project repository and navigate to its directory:
-
 ```bash
 https://github.com/RemmyLee/CHIP8.git
 cd CHIP8
