@@ -1,4 +1,5 @@
-![image](https://github.com/RemmyLee/CHIP8/assets/2806556/b27be12f-d876-4a3d-aebd-d25e9bf19209)
+![image](https://github.com/RemmyLee/CHIP8/assets/2806556/2e0d4e84-f9ec-45e2-a8fa-084edbbbd884)
+
 
 # CHIP-8 Emulator
 
