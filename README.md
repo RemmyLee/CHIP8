@@ -3,7 +3,20 @@
 
 # CHIP-8 Emulator
 
-This Python project is an interpreter for the CHIP-8, an interpreted programming language developed in the mid-1970s. The emulator mimics the CHIP-8 environment, enabling the play of classic games designed for this platform.
+A CHIP-8 interpreter wirtten in Python. The project uses the following structure:
+
+main.py
+- system/cpu.py
+- system/input.py
+- system/sound.py
+- graphics.py
+
+Included in the utils folder is a python script that can classify all the CHIP-8 roms in a directory and prepend them with the system type it's for.
+
+- CHIP-8_PONG
+- SUPERCHIP_octopeg.ch8
+- XOCHIP_joust23.rom
+
 
 ## Features
 
@@ -24,7 +37,7 @@ cd CHIP8
 
 ### Dependencies
 
-The emulator requires packages:
+Packages Needed:
 
 - `pygame` for sound and display
 - `PyOpenGL` and `PyOpenGL_accelerate` for graphics
@@ -36,8 +49,6 @@ pip install pygame PyOpenGL PyOpenGL_accelerate
 ```
 
 ### Running a Game
-
-To launch a CHIP-8 game with the emulator:
 
 ```bash
 python3 main.py /path/to/rom
