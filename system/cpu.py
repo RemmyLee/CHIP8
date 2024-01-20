@@ -337,4 +337,4 @@ class Chip8CPU:
         if self.sound_timer > 0:
             self.sound_timer -= 1
             if self.sound_timer == 0:
-                print("BEEP!")
+                pass

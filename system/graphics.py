@@ -67,7 +67,7 @@ class Chip8Graphics:
         void main() {
             vec4 color = texture(screenTexture, TexCoord);
             vec4 blurredColor = blur(TexCoord);
-            vec3 greenColor = vec3(0.2, 0.8, 0.0); // RGB for green
+            vec3 greenColor = vec3(0.4, 1.0, 0.0); // RGB for green
             if (color.r > 0.5) {
                 color.rgb = greenColor;
             }
