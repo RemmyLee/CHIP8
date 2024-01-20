@@ -70,7 +70,7 @@ class Chip8Graphics:
             vec4 blurredColor = blur(TexCoord);
 
             // Apply green color to 'on' pixels
-            vec3 greenColor = vec3(0.2, 1.0, 0.0); // RGB for green
+            vec3 greenColor = vec3(0.2, 0.8, 0.0); // RGB for green
             if (color.r > 0.5) {
                 color.rgb = greenColor;
             }
@@ -79,7 +79,7 @@ class Chip8Graphics:
             color += blurredColor * 0.8; // Adjust the multiplier to achieve the desired glow intensity
 
             // Apply a scanline effect
-            float scanline = sin(TexCoord.y * 3.14 * 32.0) * 0.05;
+            float scanline = sin(TexCoord.y * 3.14 * 128.0) * 0.05;
             color.rgb += vec3(scanline);
 
             // Apply a gamma correction to simulate the brightness of a CRT

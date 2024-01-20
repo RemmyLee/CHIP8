@@ -10,6 +10,9 @@ from OpenGL.GLUT import *
 import tkinter as tk
 from threading import Thread
 import time
+import os
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"

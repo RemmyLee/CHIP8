@@ -1,5 +1,8 @@
 import sys
-import pygame
+import contextlib
+
+with contextlib.redirect_stdout(None):
+    import pygame
 from system.cpu import Chip8CPU
 from system.input import Chip8Input
 from system.graphics import Chip8Graphics
