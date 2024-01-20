@@ -50,7 +50,9 @@ class Chip8Graphics:
         uniform sampler2D screenTexture;
 
         const int blurSize = 2;
-        const float offset = 1.0 / 250.0;
+        const float offset = 1.0 / 350.0;
+
+        // Function for blurring the texture
         vec4 blur(vec2 texCoords) {
             vec4 result = vec4(0.0);
             float kernel[9] = float[](0.0625, 0.125, 0.25, 0.25, 0.25, 0.25, 0.125, 0.0625, 0.03125);
@@ -66,10 +68,23 @@ class Chip8Graphics:
         void main() {
             vec4 color = texture(screenTexture, TexCoord);
             vec4 blurredColor = blur(TexCoord);
+
+            // Apply green color to 'on' pixels
+            vec3 greenColor = vec3(0.2, 1.0, 0.0); // RGB for green
+            if (color.r > 0.5) {
+                color.rgb = greenColor;
+            }
+
+            // Apply the blur effect to create a glow
             color += blurredColor * 0.8; // Adjust the multiplier to achieve the desired glow intensity
+
+            // Apply a scanline effect
             float scanline = sin(TexCoord.y * 3.14 * 32.0) * 0.05;
             color.rgb += vec3(scanline);
-            color.rgb = pow(color.rgb, vec3(0.8)); // Apply a gamma correction to simulate the brightness of a CRT
+
+            // Apply a gamma correction to simulate the brightness of a CRT
+            color.rgb = pow(color.rgb, vec3(0.8));
+
             FragColor = color;
         }
         """
