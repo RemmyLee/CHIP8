@@ -19,6 +19,22 @@ class Chip8CPU:
         self.last_timer_update = time.time()
         self.load_fontset()
 
+    def reset(self):
+        self.memory = [0] * 4096
+        self.V = [0] * 16
+        self.I = 0
+        self.pc = 0x200
+        self.stack = [0] * 16
+        self.sp = 0
+        self.delay_timer = 0
+        self.sound_timer = 0
+        self.display = [[0 for _ in range(64)] for _ in range(32)]
+        self.waiting_for_keypress = False
+        self.key_register = None
+        self.opcode = 0
+        self.last_timer_update = time.time()
+        self.load_fontset()
+
     def load_fontset(self):
         fontset = [
             0xF0,

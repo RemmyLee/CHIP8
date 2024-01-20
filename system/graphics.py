@@ -10,12 +10,11 @@ class Chip8Graphics:
     def __init__(self, width=640, height=320):
         # Initialize Pygame and the OpenGL context
         pygame.init()
-        pygame.display.set_mode((width, height), pygame.DOUBLEBUF | pygame.OPENGL)
+        pygame.display.set_mode(
+            (width, height), pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE
+        )
         glClearColor(0.44, 0.53, 0.0, 1.0)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        glOrtho(0, 640, 320, 0, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
+        self.init_viewport(width, height)
         pygame.display.set_caption("CHIP-8 Emulator")
         self.shader_program = self.compile_shader_program()
         self.texture_id = glGenTextures(1)
@@ -23,9 +22,15 @@ class Chip8Graphics:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         self.setup_vertex_buffer()
-
         self.window_width = width
         self.window_height = height
+
+    def init_viewport(self, width, height):
+        glViewport(0, 0, width, height)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(0, width, height, 0, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
 
     def compile_shader_program(self):
         vertex_shader_code = """
@@ -44,15 +49,10 @@ class Chip8Graphics:
         fragment_shader_code = """
         #version 330 core
         out vec4 FragColor;
-
         in vec2 TexCoord;
-
         uniform sampler2D screenTexture;
-
         const int blurSize = 2;
         const float offset = 1.0 / 350.0;
-
-        // Function for blurring the texture
         vec4 blur(vec2 texCoords) {
             vec4 result = vec4(0.0);
             float kernel[9] = float[](0.0625, 0.125, 0.25, 0.25, 0.25, 0.25, 0.125, 0.0625, 0.03125);
@@ -68,23 +68,14 @@ class Chip8Graphics:
         void main() {
             vec4 color = texture(screenTexture, TexCoord);
             vec4 blurredColor = blur(TexCoord);
-
-            // Apply green color to 'on' pixels
             vec3 greenColor = vec3(0.2, 0.8, 0.0); // RGB for green
             if (color.r > 0.5) {
                 color.rgb = greenColor;
             }
-
-            // Apply the blur effect to create a glow
             color += blurredColor * 0.8; // Adjust the multiplier to achieve the desired glow intensity
-
-            // Apply a scanline effect
             float scanline = sin(TexCoord.y * 3.14 * 128.0) * 0.05;
             color.rgb += vec3(scanline);
-
-            // Apply a gamma correction to simulate the brightness of a CRT
             color.rgb = pow(color.rgb, vec3(0.8));
-
             FragColor = color;
         }
         """
@@ -95,7 +86,6 @@ class Chip8Graphics:
     def setup_vertex_buffer(self):
         self.vertices = np.array(
             [
-                # Positions   # Texture Coords
                 -1.0,
                 1.0,
                 0.0,
@@ -115,13 +105,11 @@ class Chip8Graphics:
             ],
             dtype=np.float32,
         )
-
         self.VBO = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
         glBufferData(
             GL_ARRAY_BUFFER, self.vertices.nbytes, self.vertices, GL_STATIC_DRAW
         )
-
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * 4, ctypes.c_void_p(0))
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * 4, ctypes.c_void_p(2 * 4))
@@ -133,6 +121,7 @@ class Chip8Graphics:
         glUseProgram(self.shader_program)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
 
+        # Convert display data to a texture
         display_data = np.array(display, dtype=np.uint8) * 255
         display_data = np.repeat(
             display_data[:, :, np.newaxis], 3, axis=2
@@ -146,3 +135,6 @@ class Chip8Graphics:
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindTexture(GL_TEXTURE_2D, 0)
         pygame.display.flip()
+
+    def handle_resize(self, new_width, new_height):
+        self.init_viewport(new_width, new_height)
