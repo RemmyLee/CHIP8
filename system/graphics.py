@@ -23,6 +23,7 @@ class Chip8Graphics:
         self.setup_vertex_buffer()
         self.window_width = width
         self.window_height = height
+        self.display_changed = False  # Flag to track if display has changed
 
     def init_viewport(self, width, height):
         glViewport(0, 0, width, height)
@@ -115,17 +116,30 @@ class Chip8Graphics:
         glEnableVertexAttribArray(1)
         glBindBuffer(GL_ARRAY_BUFFER, 0)
 
-    def draw_graphics(self, display):
+    def update_display(self, new_display):
+        self.display_data = (
+            np.repeat(new_display[:, :, np.newaxis], 3, axis=2).astype(np.uint8) * 255
+        )
+        self.display_changed = True
+
+    def draw_graphics(self):
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self.shader_program)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
-        display_data = np.array(display, dtype=np.uint8) * 255
-        display_data = np.repeat(
-            display_data[:, :, np.newaxis], 3, axis=2
-        )  # Convert to RGB
-        glTexImage2D(
-            GL_TEXTURE_2D, 0, GL_RGB, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, display_data
-        )
+
+        if self.display_changed:
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGB,
+                64,
+                32,
+                0,
+                GL_RGB,
+                GL_UNSIGNED_BYTE,
+                self.display_data,
+            )
+            self.display_changed = False
 
         glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4)

@@ -22,7 +22,8 @@ def main(rom_file):
         running = input_handler.process_events(cpu)
         input_handler.set_keys()
         cpu.keyboard = input_handler.key
-        graphics.draw_graphics(cpu.display)
+        graphics.update_display(cpu.display)
+        graphics.draw_graphics()
         sound.play_sound(cpu.sound_timer)
         pygame.display.flip()
         pygame.time.delay(1)
