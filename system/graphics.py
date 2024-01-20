@@ -1,9 +1,9 @@
-import pygame
+import ctypes
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GL.shaders import compileProgram, compileShader
-import ctypes
+import pygame
 
 
 class Chip8Graphics:

@@ -1,18 +1,19 @@
+import numpy as np
 import random
 import time
 
 
 class Chip8CPU:
     def __init__(self):
-        self.memory = [0] * 4096
-        self.V = [0] * 16
+        self.memory = np.zeros(4096, dtype=np.uint8)
+        self.V = np.zeros(16, dtype=np.uint8)
         self.I = 0
         self.pc = 0x200
-        self.stack = [0] * 16
+        self.stack = np.zeros(16, dtype=np.uint16)
         self.sp = 0
         self.delay_timer = 0
         self.sound_timer = 0
-        self.display = [[0 for _ in range(64)] for _ in range(32)]
+        self.display = np.zeros((32, 64), dtype=np.uint8)
         self.waiting_for_keypress = False
         self.key_register = None
         self.opcode = 0
@@ -20,15 +21,15 @@ class Chip8CPU:
         self.load_fontset()
 
     def reset(self):
-        self.memory = [0] * 4096
-        self.V = [0] * 16
+        self.memory = np.zeros(4096, dtype=np.uint8)
+        self.V = np.zeros(16, dtype=np.uint8)
         self.I = 0
         self.pc = 0x200
-        self.stack = [0] * 16
+        self.stack = np.zeros(16, dtype=np.uint16)
         self.sp = 0
         self.delay_timer = 0
         self.sound_timer = 0
-        self.display = [[0 for _ in range(64)] for _ in range(32)]
+        self.display = np.zeros((32, 64), dtype=np.uint8)
         self.waiting_for_keypress = False
         self.key_register = None
         self.opcode = 0
@@ -36,90 +37,92 @@ class Chip8CPU:
         self.load_fontset()
 
     def load_fontset(self):
-        fontset = [
-            0xF0,
-            0x90,
-            0x90,
-            0x90,
-            0xF0,  # 0
-            0x20,
-            0x60,
-            0x20,
-            0x20,
-            0x70,  # 1
-            0xF0,
-            0x10,
-            0xF0,
-            0x80,
-            0xF0,  # 2
-            0xF0,
-            0x10,
-            0xF0,
-            0x10,
-            0xF0,  # 3
-            0x90,
-            0x90,
-            0xF0,
-            0x10,
-            0x10,  # 4
-            0xF0,
-            0x80,
-            0xF0,
-            0x10,
-            0xF0,  # 5
-            0xF0,
-            0x80,
-            0xF0,
-            0x90,
-            0xF0,  # 6
-            0xF0,
-            0x10,
-            0x20,
-            0x40,
-            0x40,  # 7
-            0xF0,
-            0x90,
-            0xF0,
-            0x90,
-            0xF0,  # 8
-            0xF0,
-            0x90,
-            0xF0,
-            0x10,
-            0xF0,  # 9
-            0xF0,
-            0x90,
-            0xF0,
-            0x90,
-            0x90,  # A
-            0xE0,
-            0x90,
-            0xE0,
-            0x90,
-            0xE0,  # B
-            0xF0,
-            0x80,
-            0x80,
-            0x80,
-            0xF0,  # C
-            0xE0,
-            0x90,
-            0x90,
-            0x90,
-            0xE0,  # D
-            0xF0,
-            0x80,
-            0xF0,
-            0x80,
-            0xF0,  # E
-            0xF0,
-            0x80,
-            0xF0,
-            0x80,
-            0x80,  # F
-        ]
-        for i in range(len(fontset)):
-            self.memory[0x50 + i] = fontset[i]
+        fontset = np.array(
+            [
+                0xF0,
+                0x90,
+                0x90,
+                0x90,
+                0xF0,  # 0
+                0x20,
+                0x60,
+                0x20,
+                0x20,
+                0x70,  # 1
+                0xF0,
+                0x10,
+                0xF0,
+                0x80,
+                0xF0,  # 2
+                0xF0,
+                0x10,
+                0xF0,
+                0x10,
+                0xF0,  # 3
+                0x90,
+                0x90,
+                0xF0,
+                0x10,
+                0x10,  # 4
+                0xF0,
+                0x80,
+                0xF0,
+                0x10,
+                0xF0,  # 5
+                0xF0,
+                0x80,
+                0xF0,
+                0x90,
+                0xF0,  # 6
+                0xF0,
+                0x10,
+                0x20,
+                0x40,
+                0x40,  # 7
+                0xF0,
+                0x90,
+                0xF0,
+                0x90,
+                0xF0,  # 8
+                0xF0,
+                0x90,
+                0xF0,
+                0x10,
+                0xF0,  # 9
+                0xF0,
+                0x90,
+                0xF0,
+                0x90,
+                0x90,  # A
+                0xE0,
+                0x90,
+                0xE0,
+                0x90,
+                0xE0,  # B
+                0xF0,
+                0x80,
+                0x80,
+                0x80,
+                0xF0,  # C
+                0xE0,
+                0x90,
+                0x90,
+                0x90,
+                0xE0,  # D
+                0xF0,
+                0x80,
+                0xF0,
+                0x80,
+                0xF0,  # E
+                0xF0,
+                0x80,
+                0xF0,
+                0x80,
+                0x80,  # F
+            ],
+            dtype=np.uint8,
+        )
+        self.memory[0x50 : 0x50 + len(fontset)] = fontset
 
     def load_game(self, filename):
         with open(filename, "rb") as game:
@@ -151,7 +154,7 @@ class Chip8CPU:
 
         if self.opcode == 0x00E0:  # 00E0 - CLS
             """Clear the display."""
-            self.display = [[0 for _ in range(64)] for _ in range(32)]
+            self.display = np.zeros((32, 64), dtype=np.uint8)
             self.pc += 2
 
         elif self.opcode == 0x00EE:  # 00EE - RET
@@ -283,20 +286,30 @@ class Chip8CPU:
 
         elif self.opcode & 0xF000 == 0xD000:  # Dxyn - DRW Vx, Vy, nibble
             """Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision."""
-            x = self.V[x] % 64
-            y = self.V[y] % 32
+            x_coord = self.V[x] % 64
+            y_coord = self.V[y] % 32
             height = n
             self.V[0xF] = 0
+
+            sprite = np.array(
+                [
+                    [
+                        (self.memory[self.I + yline] >> (7 - xline)) & 1
+                        for xline in range(8)
+                    ]
+                    for yline in range(height)
+                ],
+                dtype=np.uint8,
+            )
             for yline in range(height):
-                pixel = self.memory[self.I + yline]
                 for xline in range(8):
-                    if (pixel & (0x80 >> xline)) != 0:
-                        dx = x + xline
-                        dy = y + yline
-                        if 0 <= dx < 64 and 0 <= dy < 32:
-                            if self.display[dy][dx] == 1:
-                                self.V[0xF] = 1
-                            self.display[dy][dx] ^= 1
+                    dx = (x_coord + xline) % 64
+                    dy = (y_coord + yline) % 32
+                    pixel = sprite[yline, xline]
+                    if pixel:
+                        if self.display[dy, dx]:
+                            self.V[0xF] = 1
+                        self.display[dy, dx] ^= pixel
             self.pc += 2
 
         elif self.opcode & 0xF0FF == 0xE09E:  # Ex9E - SKP Vx

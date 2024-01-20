@@ -1,5 +1,5 @@
+import numpy as np
 import pygame
-import array
 
 
 class Chip8Sound:
@@ -12,15 +12,13 @@ class Chip8Sound:
 
     def generate_beep_sound(self):
         num_samples = int(self.sample_rate * self.beep_duration)
-        wave = array.array("h")
+        t = np.arange(num_samples)
 
-        for t in range(num_samples):
-            value = (
-                32767
-                if (t * self.beep_frequency // self.sample_rate) % 2 == 0
-                else -32767
-            )
-            wave.append(int(0.1 * value))
+        # Generate a square wave
+        wave = np.where(
+            (t * self.beep_frequency // self.sample_rate) % 2 == 0, 32767, -32767
+        )
+        wave = (wave * 0.1).astype(np.int16)  # Scale and convert to int16
 
         sound = pygame.mixer.Sound(buffer=wave.tobytes())
         sound.set_volume(0.1)
