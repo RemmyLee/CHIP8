@@ -41,11 +41,12 @@ Packages Needed:
 
 - `pygame` for sound and display
 - `PyOpenGL` and `PyOpenGL_accelerate` for graphics
+- `numpy` for simplifying work with some arrays.
 
 Install these with pip:
 
 ```bash
-pip install pygame PyOpenGL PyOpenGL_accelerate
+pip install numpy pygame PyOpenGL PyOpenGL_accelerate
 ```
 
 ### Running a Game
