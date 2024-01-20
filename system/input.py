@@ -3,7 +3,7 @@ import pygame
 
 class Chip8Input:
     def __init__(self):
-        self.key = [0] * 16
+        self.key = [0] * 16  # 0-9, A-F
         self.key_map = {
             pygame.K_1: 0x1,
             pygame.K_2: 0x2,
