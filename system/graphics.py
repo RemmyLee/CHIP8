@@ -8,7 +8,6 @@ import ctypes
 
 class Chip8Graphics:
     def __init__(self, width=640, height=320):
-        # Initialize Pygame and the OpenGL context
         pygame.init()
         pygame.display.set_mode(
             (width, height), pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE
@@ -120,8 +119,6 @@ class Chip8Graphics:
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self.shader_program)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
-
-        # Convert display data to a texture
         display_data = np.array(display, dtype=np.uint8) * 255
         display_data = np.repeat(
             display_data[:, :, np.newaxis], 3, axis=2
