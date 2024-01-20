@@ -127,8 +127,13 @@ class Chip8CPU:
     def load_game(self, filename):
         with open(filename, "rb") as game:
             game_data = game.read()
-            for i, byte in enumerate(game_data):
-                self.memory[0x200 + i] = byte
+            end_address = 0x200 + len(game_data)
+            if end_address < len(self.memory):
+                self.memory[0x200:end_address] = np.frombuffer(
+                    game_data, dtype=np.uint8
+                )
+            else:
+                raise ValueError("Game size exceeds available memory")
 
     def emulate_cycle(self):
         if not self.waiting_for_keypress:
@@ -291,25 +296,20 @@ class Chip8CPU:
             height = n
             self.V[0xF] = 0
 
-            sprite = np.array(
-                [
-                    [
-                        (self.memory[self.I + yline] >> (7 - xline)) & 1
-                        for xline in range(8)
-                    ]
-                    for yline in range(height)
-                ],
-                dtype=np.uint8,
-            )
             for yline in range(height):
+                sprite_line = self.memory[self.I + yline]
+                sprite_bits = np.array(
+                    [sprite_line >> i & 1 for i in range(7, -1, -1)], dtype=np.uint8
+                )
+                y_pos = (y_coord + yline) % 32
+
                 for xline in range(8):
-                    dx = (x_coord + xline) % 64
-                    dy = (y_coord + yline) % 32
-                    pixel = sprite[yline, xline]
-                    if pixel:
-                        if self.display[dy, dx]:
+                    x_pos = (x_coord + xline) % 64
+                    if sprite_bits[xline] == 1:
+                        if self.display[y_pos, x_pos] == 1:
                             self.V[0xF] = 1
-                        self.display[dy, dx] ^= pixel
+                        self.display[y_pos, x_pos] ^= sprite_bits[xline]
+
             self.pc += 2
 
         elif self.opcode & 0xF0FF == 0xE09E:  # Ex9E - SKP Vx

@@ -148,4 +148,7 @@ class Chip8Graphics:
         pygame.display.flip()
 
     def handle_resize(self, new_width, new_height):
-        self.init_viewport(new_width, new_height)
+        # Update the viewport
+        glViewport(0, 0, new_width, new_height)
+        self.window_width = new_width
+        self.window_height = new_height
