@@ -21,7 +21,7 @@ def main(rom_file):
         graphics.draw_graphics(cpu.display)
         sound.play_sound(cpu.sound_timer)
         pygame.display.flip()
-        pygame.time.delay(2)
+        pygame.time.delay(1)
 
 
 if __name__ == "__main__":
