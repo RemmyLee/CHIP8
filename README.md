@@ -9,7 +9,7 @@ main.py
 - system/cpu.py
 - system/input.py
 - system/sound.py
-- graphics.py
+- system/graphics.py
 
 Included in the utils folder is a python script that can classify all the CHIP-8 roms in a directory and prepend them with the system type it's for.
 
