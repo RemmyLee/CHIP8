@@ -26,7 +26,7 @@ cd CHIP8
 
 ### Dependencies
 
-The emulator requires certain Python packages to function:
+The emulator requires packages:
 
 - `pygame` for sound and display
 - `PyOpenGL` and `PyOpenGL_accelerate` for graphics
