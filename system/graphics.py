@@ -4,20 +4,20 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import pygame
+import os
 
 
 class Chip8Graphics:
-    def __init__(self, width=640, height=320):
+    def __init__(self, width=640, height=320, rom_file=""):
+        self.rom_file = os.path.basename(rom_file)
         pygame.init()
-        # Set OpenGL attributes for V-sync
         pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, 1)
-        # Create a window with DOUBLEBUF and OPENGL attributes
         self.screen = pygame.display.set_mode(
             (width, height), pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE
         )
         glClearColor(0.44, 0.53, 0.0, 1.0)
         self.init_viewport(width, height)
-        pygame.display.set_caption("CHIP-8 Emulator")
+        pygame.display.set_caption(f"CHIP-8 - {self.rom_file}")
         self.shader_program = self.compile_shader_program()
         self.texture_id = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
@@ -151,7 +151,6 @@ class Chip8Graphics:
         pygame.display.flip()
 
     def handle_resize(self, new_width, new_height):
-        # Adjust the viewport and projection matrix to handle the new window size
         glViewport(0, 0, new_width, new_height)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()

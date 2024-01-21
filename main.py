@@ -12,7 +12,7 @@ from system.sound import Chip8Sound
 def main(rom_file):
     cpu = Chip8CPU()
     input_handler = Chip8Input()
-    graphics = Chip8Graphics()
+    graphics = Chip8Graphics(width=640, height=320, rom_file=rom_file)
     sound = Chip8Sound()
     cpu.load_game(rom_file)
     running = True
@@ -27,10 +27,9 @@ def main(rom_file):
         pygame.display.flip()
         pygame.time.delay(1)
         if input_handler.reset_requested:
-            print("Reset requested")
             cpu.reset()
             cpu.load_game(rom_file)
-            input_handler.reset_requested = False  # Reset the flag
+            input_handler.reset_requested = False
 
 
 if __name__ == "__main__":
