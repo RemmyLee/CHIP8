@@ -35,56 +35,59 @@ class Chip8Graphics:
         glOrtho(0, width, height, 0, -1, 1)
         glMatrixMode(GL_MODELVIEW)
 
+    def load_shader_code(self, filename):
+        with open(filename, "r") as file:
+            return file.read()
+
+    def guess_shader_type(self, shader_code):
+        vertex_keywords = ["gl_Position", "layout(location)"]
+        fragment_keywords = ["gl_FragColor", "out vec4"]
+        geometry_keywords = [
+            "gl_in",
+            "layout(points) in",
+            "layout(lines) in",
+            "layout(triangles) in",
+        ]
+        tessellation_control_keywords = ["gl_PatchVerticesIn", "layout(vertices"]
+        tessellation_evaluation_keywords = ["gl_TessCoord"]
+        compute_keywords = [
+            "layout(local_size_x",
+            "layout(local_size_y",
+            "layout(local_size_z",
+        ]
+        if any(keyword in shader_code for keyword in vertex_keywords):
+            return GL_VERTEX_SHADER
+        elif any(keyword in shader_code for keyword in fragment_keywords):
+            return GL_FRAGMENT_SHADER
+        elif any(keyword in shader_code for keyword in geometry_keywords):
+            return GL_GEOMETRY_SHADER
+        elif any(keyword in shader_code for keyword in tessellation_control_keywords):
+            return GL_TESS_CONTROL_SHADER
+        elif any(
+            keyword in shader_code for keyword in tessellation_evaluation_keywords
+        ):
+            return GL_TESS_EVALUATION_SHADER
+        elif any(keyword in shader_code for keyword in compute_keywords):
+            return GL_COMPUTE_SHADER
+        else:
+            return None
+
     def compile_shader_program(self):
-        vertex_shader_code = """
-        #version 330 core
-        layout (location = 0) in vec2 aPos;
-        layout (location = 1) in vec2 aTexCoord;
+        shader_program = None
+        shaders = []
+        shader_files = os.listdir("shaders")
+        for filename in shader_files:
+            shader_code = self.load_shader_code(os.path.join("shaders", filename))
+            shader_type = self.guess_shader_type(shader_code)
 
-        out vec2 TexCoord;
+            if shader_type is not None:
+                shader = compileShader(shader_code, shader_type)
+                shaders.append(shader)
 
-        void main() {
-            gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
-            TexCoord = aTexCoord;
-        }
-        """
+        if shaders:
+            shader_program = compileProgram(*shaders)
 
-        fragment_shader_code = """
-        #version 330 core
-        out vec4 FragColor;
-        in vec2 TexCoord;
-        uniform sampler2D screenTexture;
-        const int blurSize = 2;
-        const float offset = 1.0 / 350.0;
-        vec4 blur(vec2 texCoords) {
-            vec4 result = vec4(0.0);
-            float kernel[9] = float[](0.0625, 0.125, 0.25, 0.25, 0.25, 0.25, 0.125, 0.0625, 0.03125);
-            for (int x = -blurSize; x <= blurSize; x++) {
-                for (int y = -blurSize; y <= blurSize; y++) {
-                    vec2 shift = vec2(float(x) * offset, float(y) * offset);
-                    result += texture(screenTexture, texCoords + shift) * kernel[abs(x)] * kernel[abs(y)];
-                }
-            }
-            return result;
-        }
-
-        void main() {
-            vec4 color = texture(screenTexture, TexCoord);
-            vec4 blurredColor = blur(TexCoord);
-            vec3 greenColor = vec3(0.4, 1.0, 0.0);
-            if (color.r > 0.5) {
-                color.rgb = greenColor;
-            }
-            color += blurredColor * 1;
-            float scanline = sin(TexCoord.y * 3.14 * 160.0) * 0.05;
-            color.rgb += vec3(scanline);
-            color.rgb = pow(color.rgb, vec3(0.8));
-            FragColor = color;
-        }
-        """
-        vertex_shader = compileShader(vertex_shader_code, GL_VERTEX_SHADER)
-        fragment_shader = compileShader(fragment_shader_code, GL_FRAGMENT_SHADER)
-        return compileProgram(vertex_shader, fragment_shader)
+        return shader_program
 
     def setup_vertex_buffer(self):
         self.vertices = np.array(
