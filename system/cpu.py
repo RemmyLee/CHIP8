@@ -258,10 +258,9 @@ class Chip8CPU:
 
         elif self.opcode & 0xF00F == 0x8007:  # 8xy7 - SUBN Vx, Vy
             """Set Vx = Vy - Vx, set VF = NOT borrow."""
-            # Perform the operation using Python's integer type to avoid underflow
             result = int(self.V[y]) - int(self.V[x])
-            self.V[0xF] = 0 if result < 0 else 1  # NOT borrow if result is negative
-            self.V[x] = result & 0xFF  # Manually apply 8-bit limit
+            self.V[0xF] = 0 if result < 0 else 1
+            self.V[x] = result & 0xFF
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x800E:  # 8xyE - SHL Vx {, Vy}
@@ -306,9 +305,7 @@ class Chip8CPU:
                 )
                 for xline in range(8):
                     x_pos = (x_coord + xline) % 64
-                    y_pos = (
-                        y_coord + yline
-                    ) % 32  # Ensure y-coordinate wraps correctly
+                    y_pos = (y_coord + yline) % 32
                     if sprite_bits[xline] == 1:
                         if self.display[y_pos, x_pos] == 1:
                             self.V[0xF] = 1

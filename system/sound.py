@@ -18,7 +18,7 @@ class Chip8Sound:
         wave = np.where(
             (t * self.beep_frequency // self.sample_rate) % 2 == 0, 32767, -32767
         )
-        wave = (wave * 0.1).astype(np.int16)  # Scale and convert to int16
+        wave = (wave * 0.1).astype(np.int16)
 
         sound = pygame.mixer.Sound(buffer=wave.tobytes())
         sound.set_volume(0.1)

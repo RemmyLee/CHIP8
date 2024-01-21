@@ -26,7 +26,7 @@ class Chip8Graphics:
         self.setup_vertex_buffer()
         self.window_width = width
         self.window_height = height
-        self.display_changed = False  # Flag to track if display has changed
+        self.display_changed = False
 
     def init_viewport(self, width, height):
         glViewport(0, 0, width, height)
@@ -71,12 +71,12 @@ class Chip8Graphics:
         void main() {
             vec4 color = texture(screenTexture, TexCoord);
             vec4 blurredColor = blur(TexCoord);
-            vec3 greenColor = vec3(0.4, 1.0, 0.0); // RGB for green
+            vec3 greenColor = vec3(0.4, 1.0, 0.0);
             if (color.r > 0.5) {
                 color.rgb = greenColor;
             }
-            color += blurredColor * 0.8; // Adjust the multiplier to achieve the desired glow intensity
-            float scanline = sin(TexCoord.y * 3.14 * 128.0) * 0.05;
+            color += blurredColor * 1;
+            float scanline = sin(TexCoord.y * 3.14 * 160.0) * 0.05;
             color.rgb += vec3(scanline);
             color.rgb = pow(color.rgb, vec3(0.8));
             FragColor = color;
