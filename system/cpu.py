@@ -234,16 +234,14 @@ class Chip8CPU:
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x8004:  # 8xy4 - ADD Vx, Vy
-            """Set Vx = Vx + Vy, set VF = carry."""
-            sum_val = self.V[x] + self.V[y]
+            sum_val = int(self.V[x]) + int(self.V[y])
             self.V[x] = sum_val & 0xFF
             self.V[0xF] = 1 if sum_val > 255 else 0
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x8005:  # 8xy5 - SUB Vx, Vy
-            """Set Vx = Vx - Vy, set VF = NOT borrow."""
-            vx_value = self.V[x]
-            vy_value = self.V[y]
+            vx_value = int(self.V[x])
+            vy_value = int(self.V[y])
             self.V[x] = (vx_value - vy_value) & 0xFF
             self.V[0xF] = 1 if vx_value >= vy_value else 0
             self.pc += 2
