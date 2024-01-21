@@ -10,7 +10,6 @@ from system.sound import Chip8Sound
 
 
 def main(rom_file):
-    print("Welcome to CHIP-8 Emulator!")
     cpu = Chip8CPU()
     input_handler = Chip8Input()
     graphics = Chip8Graphics()

@@ -56,7 +56,7 @@ python3 main.py /path/to/rom
 ```
 
 Replace `/path/to/rom` with the actual path to your CHIP-8 ROM.
-Use "q+z" to reset.
+Use 0 to reset.
 
 ## Controls
 

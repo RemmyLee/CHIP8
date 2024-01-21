@@ -29,7 +29,7 @@ class Chip8Input:
         keys = pygame.key.get_pressed()
         for key, value in self.key_map.items():
             self.key[value] = 1 if keys[key] else 0
-        if keys[pygame.K_q] and keys[pygame.K_z]:
+        if keys[pygame.K_0]:
             self.reset_requested = True
 
     def process_events(self, cpu):
