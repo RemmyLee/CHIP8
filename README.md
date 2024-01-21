@@ -41,7 +41,7 @@ Packages Needed:
 
 - `pygame` for sound and display
 - `PyOpenGL` and `PyOpenGL_accelerate` for graphics
-- `numpy` for simplifying work with some arrays.
+- `numpy` for faster arrays.
 
 Install these with pip:
 
