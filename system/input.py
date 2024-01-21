@@ -43,4 +43,9 @@ class Chip8Input:
                             cpu.V[cpu.key_register] = value
                             cpu.waiting_for_keypress = False
                             break
+                if event.key in self.key_map:
+                    self.key[self.key_map[event.key]] = 1
+            elif event.type == pygame.KEYUP:
+                if event.key in self.key_map:
+                    self.key[self.key_map[event.key]] = 0
         return True

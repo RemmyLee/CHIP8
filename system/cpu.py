@@ -221,16 +221,19 @@ class Chip8CPU:
         elif self.opcode & 0xF00F == 0x8001:  # 8xy1 - OR Vx, Vy
             """Set Vx = Vx OR Vy."""
             self.V[x] |= self.V[y]
+            self.V[0xF] = 0
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x8002:  # 8xy2 - AND Vx, Vy
             """Set Vx = Vx AND Vy."""
             self.V[x] &= self.V[y]
+            self.V[0xF] = 0
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x8003:  # 8xy3 - XOR Vx, Vy
             """Set Vx = Vx XOR Vy."""
             self.V[x] ^= self.V[y]
+            self.V[0xF] = 0
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x8004:  # 8xy4 - ADD Vx, Vy
@@ -255,8 +258,10 @@ class Chip8CPU:
 
         elif self.opcode & 0xF00F == 0x8007:  # 8xy7 - SUBN Vx, Vy
             """Set Vx = Vy - Vx, set VF = NOT borrow."""
-            self.V[x] = (self.V[y] - self.V[x]) & 0xFF
-            self.V[0xF] = 1 if self.V[y] >= self.V[x] else 0
+            # Perform the operation using Python's integer type to avoid underflow
+            result = int(self.V[y]) - int(self.V[x])
+            self.V[0xF] = 0 if result < 0 else 1  # NOT borrow if result is negative
+            self.V[x] = result & 0xFF  # Manually apply 8-bit limit
             self.pc += 2
 
         elif self.opcode & 0xF00F == 0x800E:  # 8xyE - SHL Vx {, Vy}
@@ -280,7 +285,8 @@ class Chip8CPU:
 
         elif self.opcode & 0xF000 == 0xB000:  # Bnnn - JP V0, addr
             """Jump to location nnn + V0."""
-            self.pc = nnn + self.V[0]
+            # jump to nnn + the highest nibble of nnn
+            self.pc = nnn + self.V[0x0]
 
         elif self.opcode & 0xF000 == 0xC000:  # Cxnn - RND Vx, byte
             """Set Vx = random byte AND nn."""
@@ -288,7 +294,6 @@ class Chip8CPU:
             self.pc += 2
 
         elif self.opcode & 0xF000 == 0xD000:  # Dxyn - DRW Vx, Vy, nibble
-            """Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision."""
             x_coord = self.V[x] % 64
             y_coord = self.V[y] % 32
             height = n
@@ -299,10 +304,11 @@ class Chip8CPU:
                 sprite_bits = np.array(
                     [sprite_line >> i & 1 for i in range(7, -1, -1)], dtype=np.uint8
                 )
-                y_pos = (y_coord + yline) % 32
-
                 for xline in range(8):
                     x_pos = (x_coord + xline) % 64
+                    y_pos = (
+                        y_coord + yline
+                    ) % 32  # Ensure y-coordinate wraps correctly
                     if sprite_bits[xline] == 1:
                         if self.display[y_pos, x_pos] == 1:
                             self.V[0xF] = 1

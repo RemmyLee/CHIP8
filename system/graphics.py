@@ -9,7 +9,10 @@ import pygame
 class Chip8Graphics:
     def __init__(self, width=640, height=320):
         pygame.init()
-        pygame.display.set_mode(
+        # Set OpenGL attributes for V-sync
+        pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, 1)
+        # Create a window with DOUBLEBUF and OPENGL attributes
+        self.screen = pygame.display.set_mode(
             (width, height), pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE
         )
         glClearColor(0.44, 0.53, 0.0, 1.0)
@@ -148,6 +151,11 @@ class Chip8Graphics:
         pygame.display.flip()
 
     def handle_resize(self, new_width, new_height):
+        # Adjust the viewport and projection matrix to handle the new window size
         glViewport(0, 0, new_width, new_height)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(0, new_width, new_height, 0, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
         self.window_width = new_width
         self.window_height = new_height
